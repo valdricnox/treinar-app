@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, setIncidents } from '../store';
 import api from '../services/api';
+import StatusBadge from '../components/StatusBadge';
+import OfflineBanner from '../components/OfflineBanner';
 import { C, S, R, F, Sh } from '../theme';
 
-const SEV: any = {
-  critico: { label: 'Crítico', bg: C.dangerBg, text: C.dangerDark, dot: C.danger },
-  alto: { label: 'Alto', bg: C.warningBg, text: C.warningDark, dot: C.warning },
-  medio: { label: 'Médio', bg: C.infoBg, text: C.infoDark, dot: C.info },
-  baixo: { label: 'Baixo', bg: C.successBg, text: C.successDark, dot: C.success },
+const SEV_CONFIG: any = {
+  critico: { label: 'Crítico', bg: C.dangerBg,  text: C.dangerDark,  border: C.dangerBorder,  dot: C.danger,  emoji: '🔴' },
+  alto:    { label: 'Alto',    bg: C.warningBg, text: C.warningDark, border: C.warningBorder, dot: C.warning, emoji: '🟠' },
+  medio:   { label: 'Médio',   bg: C.infoBg,    text: C.infoDark,    border: C.infoBorder,    dot: C.info,    emoji: '🔵' },
+  baixo:   { label: 'Baixo',   bg: C.successBg, text: C.successDark, border: C.successBorder, dot: C.success, emoji: '🟢' },
 };
 
 export default function IncidentsScreen({ navigation }: any) {
@@ -33,34 +37,46 @@ export default function IncidentsScreen({ navigation }: any) {
   const filters = ['Todos', 'critico', 'alto', 'medio', 'baixo'];
   const filtered = filter === 'Todos' ? incidents : incidents.filter((i: any) => i.severidade === filter);
 
-  const counts = {
+  const counts: any = {
     critico: incidents.filter((i: any) => i.severidade === 'critico').length,
-    alto: incidents.filter((i: any) => i.severidade === 'alto').length,
-    medio: incidents.filter((i: any) => i.severidade === 'medio').length,
-    baixo: incidents.filter((i: any) => i.severidade === 'baixo').length,
+    alto:    incidents.filter((i: any) => i.severidade === 'alto').length,
+    medio:   incidents.filter((i: any) => i.severidade === 'medio').length,
+    baixo:   incidents.filter((i: any) => i.severidade === 'baixo').length,
   };
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <OfflineBanner />
+
       <View style={s.header}>
-        <Text style={s.title}>Incidentes</Text>
+        <View>
+          <Text style={s.title}>Incidentes</Text>
+          <Text style={s.subtitle}>{incidents.length} registrados</Text>
+        </View>
         <TouchableOpacity style={s.newBtn} onPress={() => navigation.navigate('NewIncident')}>
           <Text style={s.newBtnTxt}>+ Novo</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={s.statsRow}>
-        {Object.entries(counts).map(([k, v]) => {
-          const sev = SEV[k];
+      {/* Cards de severidade */}
+      <View style={s.sevRow}>
+        {Object.entries(counts).map(([key, val]) => {
+          const cfg = SEV_CONFIG[key];
           return (
-            <View key={k} style={[s.statCard, { backgroundColor: sev.bg }]}>
-              <Text style={[s.statVal, { color: sev.text }]}>{v as number}</Text>
-              <Text style={[s.statLabel, { color: sev.text }]}>{sev.label}</Text>
-            </View>
+            <TouchableOpacity
+              key={key}
+              style={[s.sevCard, { backgroundColor: cfg.bg, borderColor: filter === key ? cfg.dot : 'transparent', borderWidth: 2 }]}
+              onPress={() => setFilter(filter === key ? 'Todos' : key)}
+            >
+              <Text style={s.sevEmoji}>{cfg.emoji}</Text>
+              <Text style={[s.sevVal, { color: cfg.text }]}>{val as number}</Text>
+              <Text style={[s.sevLabel, { color: cfg.text }]}>{cfg.label}</Text>
+            </TouchableOpacity>
           );
         })}
       </View>
 
+      {/* Filter pills */}
       <View style={s.filterRow}>
         {filters.map((f) => (
           <TouchableOpacity
@@ -69,7 +85,7 @@ export default function IncidentsScreen({ navigation }: any) {
             onPress={() => setFilter(f)}
           >
             <Text style={[s.chipTxt, filter === f && s.chipActiveTxt]}>
-              {f === 'Todos' ? 'Todos' : SEV[f]?.label}
+              {f === 'Todos' ? 'Todos' : SEV_CONFIG[f]?.emoji + ' ' + SEV_CONFIG[f]?.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -80,24 +96,46 @@ export default function IncidentsScreen({ navigation }: any) {
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={C.primary} />}
         contentContainerStyle={s.list}
-        ListEmptyComponent={<Text style={s.empty}>Nenhum incidente registrado.</Text>}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={s.emptyBox}>
+            <Text style={s.emptyEmoji}>⚠️</Text>
+            <Text style={s.emptyTxt}>Nenhum incidente registrado</Text>
+            <Text style={s.emptySub}>Registre incidentes para acompanhar a segurança</Text>
+          </View>
+        }
         renderItem={({ item }) => {
-          const sev = SEV[item.severidade] || SEV.baixo;
+          const cfg = SEV_CONFIG[item.severidade] || SEV_CONFIG.baixo;
+          const data = item.data_criacao ? new Date(item.data_criacao).toLocaleDateString('pt-BR') : '—';
           return (
-            <View style={s.card}>
+            <View style={[s.card, { borderLeftColor: cfg.dot, borderLeftWidth: 4 }]}>
               <View style={s.cardTop}>
-                <View style={[s.sevDot, { backgroundColor: sev.dot }]} />
-                <View style={[s.sevBadge, { backgroundColor: sev.bg }]}>
-                  <Text style={[s.sevTxt, { color: sev.text }]}>{sev.label}</Text>
+                <View style={[s.sevBadge, { backgroundColor: cfg.bg }]}>
+                  <Text style={s.sevBadgeEmoji}>{cfg.emoji}</Text>
+                  <Text style={[s.sevBadgeTxt, { color: cfg.text }]}>{cfg.label}</Text>
                 </View>
-                <Text style={s.cardDate}>{new Date(item.data_criacao).toLocaleDateString('pt-BR')}</Text>
+                <View style={{ flex: 1 }} />
+                <Text style={s.cardDate}>{data}</Text>
+                <StatusBadge type="status" value={item.status || 'aberto'} showDot={false} />
               </View>
+
               <Text style={s.cardTitle}>{item.titulo}</Text>
               <Text style={s.cardDesc} numberOfLines={2}>{item.descricao}</Text>
+
               <View style={s.cardFooter}>
-                <Text style={s.cardMeta}>📍 {item.local || item.obra}</Text>
-                <Text style={s.cardMeta}>🏷 {item.tipo}</Text>
+                <Text style={s.footerItem}>📍 {item.local || item.obra || '—'}</Text>
+                <Text style={s.footerDot}>·</Text>
+                <Text style={s.footerItem}>🏷️ {item.tipo || '—'}</Text>
+                <Text style={s.footerDot}>·</Text>
+                <Text style={s.footerItem}>👤 {item.responsavel || '—'}</Text>
               </View>
+
+              {item.acao ? (
+                <View style={s.acaoBox}>
+                  <Text style={s.acaoLabel}>Ação:</Text>
+                  <Text style={s.acaoTxt} numberOfLines={1}>{item.acao}</Text>
+                </View>
+              ) : null}
             </View>
           );
         }}
@@ -107,30 +145,44 @@ export default function IncidentsScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.offWhite },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.md },
+  safe: { flex: 1, backgroundColor: C.bg },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: S.md },
   title: { fontSize: F.xxl, fontWeight: '800', color: C.textPrimary },
-  newBtn: { backgroundColor: C.primary, borderRadius: R.md, paddingHorizontal: S.md, paddingVertical: S.sm },
-  newBtnTxt: { fontWeight: '700', fontSize: F.sm, color: C.black },
-  statsRow: { flexDirection: 'row', paddingHorizontal: S.md, gap: S.sm, marginBottom: S.sm },
-  statCard: { flex: 1, borderRadius: R.lg, padding: S.sm, alignItems: 'center' },
-  statVal: { fontSize: F.xl, fontWeight: '800' },
-  statLabel: { fontSize: F.xs, fontWeight: '600' },
+  subtitle: { fontSize: F.sm, color: C.textTertiary, marginTop: 2 },
+  newBtn: { backgroundColor: C.danger, borderRadius: R.full, paddingHorizontal: S.md, paddingVertical: S.sm, ...Sh.md },
+  newBtnTxt: { fontWeight: '800', fontSize: F.sm, color: C.white },
+
+  sevRow: { flexDirection: 'row', paddingHorizontal: S.md, gap: S.sm, marginBottom: S.sm },
+  sevCard: { flex: 1, borderRadius: R.xl, padding: S.sm, alignItems: 'center', gap: 2 },
+  sevEmoji: { fontSize: 18 },
+  sevVal: { fontSize: F.xl, fontWeight: '900' },
+  sevLabel: { fontSize: F.xs, fontWeight: '700' },
+
   filterRow: { flexDirection: 'row', paddingHorizontal: S.md, gap: S.xs, marginBottom: S.sm, flexWrap: 'wrap' },
-  chip: { paddingHorizontal: S.sm, paddingVertical: S.xs, borderRadius: R.full, borderWidth: 1, borderColor: C.border, backgroundColor: C.white },
+  chip: { paddingHorizontal: S.sm, paddingVertical: S.xs + 1, borderRadius: R.full, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   chipActive: { backgroundColor: C.black, borderColor: C.black },
-  chipTxt: { fontSize: F.xs, color: C.textSecondary, fontWeight: '600' },
+  chipTxt: { fontSize: F.xs, color: C.textSecondary, fontWeight: '700' },
   chipActiveTxt: { color: C.primary },
-  list: { padding: S.md, gap: S.sm, paddingBottom: S.xxl },
-  empty: { textAlign: 'center', color: C.textMuted, marginTop: S.xxl },
-  card: { backgroundColor: C.card, borderRadius: R.xl, padding: S.md, ...Sh.sm },
+
+  list: { padding: S.md, gap: S.sm, paddingBottom: 100 },
+
+  emptyBox: { alignItems: 'center', padding: S.xxl },
+  emptyEmoji: { fontSize: 48, marginBottom: S.md },
+  emptyTxt: { fontSize: F.lg, fontWeight: '700', color: C.textPrimary },
+  emptySub: { fontSize: F.sm, color: C.textTertiary, textAlign: 'center', marginTop: S.xs },
+
+  card: { backgroundColor: C.card, borderRadius: R.xxl, padding: S.md, ...Sh.sm },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: S.sm, marginBottom: S.sm },
-  sevDot: { width: 10, height: 10, borderRadius: R.full },
-  sevBadge: { borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: 2 },
-  sevTxt: { fontSize: F.xs, fontWeight: '700' },
-  cardDate: { fontSize: F.xs, color: C.textMuted, marginLeft: 'auto' },
+  sevBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: 3 },
+  sevBadgeEmoji: { fontSize: F.xs },
+  sevBadgeTxt: { fontSize: F.xs, fontWeight: '800' },
+  cardDate: { fontSize: F.xs, color: C.textTertiary, marginRight: S.xs },
   cardTitle: { fontSize: F.md, fontWeight: '700', color: C.textPrimary, marginBottom: S.xs },
-  cardDesc: { fontSize: F.sm, color: C.textSecondary, marginBottom: S.sm },
-  cardFooter: { flexDirection: 'row', gap: S.md },
-  cardMeta: { fontSize: F.xs, color: C.textMuted },
+  cardDesc: { fontSize: F.sm, color: C.textSecondary, marginBottom: S.sm, lineHeight: 20 },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: S.xs },
+  footerItem: { fontSize: F.xs, color: C.textTertiary },
+  footerDot: { color: C.textTertiary, fontSize: F.xs },
+  acaoBox: { flexDirection: 'row', gap: S.xs, backgroundColor: C.successBg, borderRadius: R.md, padding: S.sm, marginTop: S.sm },
+  acaoLabel: { fontSize: F.xs, fontWeight: '800', color: C.successDark },
+  acaoTxt: { fontSize: F.xs, color: C.successDark, flex: 1 },
 });

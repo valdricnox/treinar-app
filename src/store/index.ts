@@ -3,10 +3,14 @@ import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { combineReducers } from 'redux';
 
-// AUTH
+// ─── AUTH ────────────────────────────────────────────────────────────────────
 const authSlice = createSlice({
   name: 'auth',
-  initialState: { user: null as any, token: null as string | null, isLoggedIn: false },
+  initialState: {
+    user: null as any,
+    token: null as string | null,
+    isLoggedIn: false,
+  },
   reducers: {
     setAuth: (state, action: PayloadAction<{ user: any; token: string }>) => {
       state.user = action.payload.user;
@@ -18,66 +22,111 @@ const authSlice = createSlice({
       state.token = null;
       state.isLoggedIn = false;
     },
+    updateUser: (state, action: PayloadAction<any>) => {
+      state.user = { ...state.user, ...action.payload };
+    },
   },
 });
 
-// CHECKLISTS
+// ─── CHECKLISTS ───────────────────────────────────────────────────────────────
 const checklistsSlice = createSlice({
   name: 'checklists',
-  initialState: { list: [] as any[], pendingSync: [] as any[] },
+  initialState: {
+    list: [] as any[],
+    pendingSync: [] as any[],  // itens a sincronizar quando voltar online
+  },
   reducers: {
-    setChecklists: (state, action) => { state.list = action.payload; },
-    addChecklist: (state, action) => { state.list.unshift(action.payload); },
-    updateChecklist: (state, action) => {
-      const idx = state.list.findIndex((c) => c.id === action.payload.id);
-      if (idx !== -1) state.list[idx] = action.payload;
+    setChecklists: (state, action: PayloadAction<any[]>) => {
+      state.list = action.payload;
     },
-    addPendingSync: (state, action) => { state.pendingSync.push(action.payload); },
-    clearPendingSync: (state) => { state.pendingSync = []; },
+    addChecklist: (state, action: PayloadAction<any>) => {
+      state.list.unshift(action.payload);
+    },
+    updateChecklist: (state, action: PayloadAction<any>) => {
+      const idx = state.list.findIndex((c) => c.id === action.payload.id);
+      if (idx !== -1) state.list[idx] = { ...state.list[idx], ...action.payload };
+      else state.list.unshift(action.payload);
+    },
+    removeChecklist: (state, action: PayloadAction<any>) => {
+      state.list = state.list.filter((c) => c.id !== action.payload);
+    },
+    addPendingSync: (state, action: PayloadAction<any>) => {
+      state.pendingSync.push(action.payload);
+    },
+    clearPendingSync: (state) => {
+      state.pendingSync = [];
+    },
   },
 });
 
-// INCIDENTS
+// ─── INCIDENTS ────────────────────────────────────────────────────────────────
 const incidentsSlice = createSlice({
   name: 'incidents',
-  initialState: { list: [] as any[] },
+  initialState: {
+    list: [] as any[],
+    pendingSync: [] as any[],
+  },
   reducers: {
-    setIncidents: (state, action) => { state.list = action.payload; },
-    addIncident: (state, action) => { state.list.unshift(action.payload); },
-    updateIncident: (state, action) => {
+    setIncidents: (state, action: PayloadAction<any[]>) => {
+      state.list = action.payload;
+    },
+    addIncident: (state, action: PayloadAction<any>) => {
+      state.list.unshift(action.payload);
+    },
+    updateIncident: (state, action: PayloadAction<any>) => {
       const idx = state.list.findIndex((i) => i.id === action.payload.id);
-      if (idx !== -1) state.list[idx] = action.payload;
+      if (idx !== -1) state.list[idx] = { ...state.list[idx], ...action.payload };
+      else state.list.unshift(action.payload);
+    },
+    addIncidentPendingSync: (state, action: PayloadAction<any>) => {
+      state.pendingSync.push(action.payload);
+    },
+    clearIncidentPendingSync: (state) => {
+      state.pendingSync = [];
     },
   },
 });
 
-// TEAM
+// ─── TEAM ─────────────────────────────────────────────────────────────────────
 const teamSlice = createSlice({
   name: 'team',
   initialState: { list: [] as any[] },
   reducers: {
-    setTeam: (state, action) => { state.list = action.payload; },
-    addMember: (state, action) => { state.list.unshift(action.payload); },
-    removeMember: (state, action) => { state.list = state.list.filter((m) => m.id !== action.payload); },
+    setTeam: (state, action: PayloadAction<any[]>) => { state.list = action.payload; },
+    addMember: (state, action: PayloadAction<any>) => { state.list.unshift(action.payload); },
+    updateMember: (state, action: PayloadAction<any>) => {
+      const idx = state.list.findIndex((m) => m.id === action.payload.id);
+      if (idx !== -1) state.list[idx] = { ...state.list[idx], ...action.payload };
+    },
+    removeMember: (state, action: PayloadAction<any>) => {
+      state.list = state.list.filter((m) => m.id !== action.payload);
+    },
   },
 });
 
-// APP
+// ─── APP ──────────────────────────────────────────────────────────────────────
 const appSlice = createSlice({
   name: 'app',
-  initialState: { isOnline: true, lastSync: null as string | null },
+  initialState: {
+    isOnline: true,
+    lastSync: null as string | null,
+    pendingSyncCount: 0,
+  },
   reducers: {
-    setOnline: (state, action) => { state.isOnline = action.payload; },
-    setLastSync: (state, action) => { state.lastSync = action.payload; },
+    setOnline: (state, action: PayloadAction<boolean>) => { state.isOnline = action.payload; },
+    setLastSync: (state, action: PayloadAction<string>) => { state.lastSync = action.payload; },
+    setPendingSyncCount: (state, action: PayloadAction<number>) => { state.pendingSyncCount = action.payload; },
   },
 });
 
-export const { setAuth, clearAuth } = authSlice.actions;
-export const { setChecklists, addChecklist, updateChecklist, addPendingSync, clearPendingSync } = checklistsSlice.actions;
-export const { setIncidents, addIncident, updateIncident } = incidentsSlice.actions;
-export const { setTeam, addMember, removeMember } = teamSlice.actions;
-export const { setOnline, setLastSync } = appSlice.actions;
+// ─── EXPORTS ──────────────────────────────────────────────────────────────────
+export const { setAuth, clearAuth, updateUser } = authSlice.actions;
+export const { setChecklists, addChecklist, updateChecklist, removeChecklist, addPendingSync, clearPendingSync } = checklistsSlice.actions;
+export const { setIncidents, addIncident, updateIncident, addIncidentPendingSync, clearIncidentPendingSync } = incidentsSlice.actions;
+export const { setTeam, addMember, updateMember, removeMember } = teamSlice.actions;
+export const { setOnline, setLastSync, setPendingSyncCount } = appSlice.actions;
 
+// ─── STORE ────────────────────────────────────────────────────────────────────
 const rootReducer = combineReducers({
   auth: authSlice.reducer,
   checklists: checklistsSlice.reducer,
@@ -86,13 +135,22 @@ const rootReducer = combineReducers({
   app: appSlice.reducer,
 });
 
-const persistConfig = { key: 'root', storage: AsyncStorage, whitelist: ['auth', 'checklists', 'incidents'] };
+const persistConfig = {
+  key: 'treinar-v3',
+  storage: AsyncStorage,
+  whitelist: ['auth', 'checklists', 'incidents', 'team'],
+};
+
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({ serializableCheck: { ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER] } }),
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+      },
+    }),
 });
 
 export const persistor = persistStore(store);

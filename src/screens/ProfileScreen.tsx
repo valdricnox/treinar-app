@@ -7,140 +7,209 @@ import { RootState, clearAuth } from '../store';
 import Logo from '../components/Logo';
 import { C, S, R, F, Sh } from '../theme';
 
-const NRS = ['NR-6', 'NR-10', 'NR-12', 'NR-18', 'NR-23', 'NR-33', 'NR-35'];
+const NRS_ALL = ['NR-5','NR-6','NR-7','NR-9','NR-10','NR-11','NR-12','NR-17','NR-18','NR-20','NR-21','NR-23','NR-26','NR-33','NR-35'];
+
+const ROLE_CONFIG: any = {
+  admin:    { label: 'Administrador', emoji: '⚙️', bg: C.dangerBg,  text: C.dangerDark },
+  gestor:   { label: 'Gestor',        emoji: '📊', bg: C.infoBg,    text: C.infoDark },
+  inspetor: { label: 'Inspetor',      emoji: '🦺', bg: C.successBg, text: C.successDark },
+};
 
 export default function ProfileScreen() {
   const dispatch = useDispatch();
   const user = useSelector((s: RootState) => s.auth.user);
   const checklists = useSelector((s: RootState) => s.checklists.list);
   const incidents = useSelector((s: RootState) => s.incidents.list);
+  const isOnline = useSelector((s: RootState) => s.app.isOnline);
+  const lastSync = useSelector((s: RootState) => s.app.lastSync);
+  const pendingCount = useSelector((s: RootState) => s.checklists.pendingSync.length + s.incidents.pendingSync.length);
 
   const myChecklists = checklists.filter((c: any) => c.user_id === user?.id || c.responsavel === user?.name);
   const myConcluded = myChecklists.filter((c: any) => c.status === 'concluido');
+  const myIncidents = incidents.filter((i: any) => i.user_id === user?.id || i.responsavel === user?.name);
+
+  const roleConf = ROLE_CONFIG[user?.role] || ROLE_CONFIG.inspetor;
 
   const logout = () => {
-    Alert.alert('Sair', 'Deseja realmente sair?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair', style: 'destructive', onPress: async () => {
-          await AsyncStorage.removeItem('token');
-          dispatch(clearAuth());
+    Alert.alert(
+      'Sair da conta',
+      'Tem certeza que deseja sair? Os dados offline serão mantidos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sair', style: 'destructive', onPress: async () => {
+            await AsyncStorage.removeItem('token');
+            dispatch(clearAuth());
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
-  const roleName: any = { admin: 'Administrador', gestor: 'Gestor', inspetor: 'Inspetor' };
-  const roleColor: any = { admin: C.dangerDark, gestor: C.infoDark, inspetor: C.successDark };
-  const roleBg: any = { admin: C.dangerBg, gestor: C.infoBg, inspetor: C.successBg };
+  const formatSync = (iso: string | null) => {
+    if (!iso) return 'Nunca';
+    return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={s.scroll}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Card perfil */}
         <View style={s.profileCard}>
-          <View style={s.avatarBox}>
-            <Text style={s.avatarTxt}>{user?.name?.charAt(0).toUpperCase()}</Text>
-          </View>
-          <Text style={s.name}>{user?.name}</Text>
-          <Text style={s.email}>{user?.email}</Text>
-          <View style={[s.roleBadge, { backgroundColor: roleBg[user?.role] || C.infoBg }]}>
-            <Text style={[s.roleTxt, { color: roleColor[user?.role] || C.infoDark }]}>
-              {roleName[user?.role] || user?.role}
+          <View style={[s.avatarBig, { backgroundColor: roleConf.bg }]}>
+            <Text style={[s.avatarTxt, { color: roleConf.text }]}>
+              {user?.name?.charAt(0).toUpperCase() || '?'}
             </Text>
           </View>
-          {user?.obra && <Text style={s.obra}>📍 {user.obra}</Text>}
+          <Text style={s.profileName}>{user?.name}</Text>
+          <Text style={s.profileEmail}>{user?.email}</Text>
+          <View style={[s.rolePill, { backgroundColor: roleConf.bg }]}>
+            <Text style={s.roleEmoji}>{roleConf.emoji}</Text>
+            <Text style={[s.roleTxt, { color: roleConf.text }]}>{roleConf.label}</Text>
+          </View>
+          {user?.obra ? (
+            <View style={s.obraRow}>
+              <Text style={s.obraTxt}>📍 {user.obra}</Text>
+            </View>
+          ) : null}
         </View>
 
-        <View style={s.statsRow}>
-          <View style={s.statCard}>
-            <Text style={s.statVal}>{myChecklists.length}</Text>
-            <Text style={s.statLabel}>Inspeções</Text>
+        {/* Status de conexão */}
+        <View style={[s.statusCard, { backgroundColor: isOnline ? C.successBg : C.warningBg, borderColor: isOnline ? C.successBorder : C.warningBorder }]}>
+          <View style={s.statusRow}>
+            <View style={[s.statusDot, { backgroundColor: isOnline ? C.success : C.warning }]} />
+            <Text style={[s.statusTxt, { color: isOnline ? C.successDark : C.warningDark }]}>
+              {isOnline ? '● Online — conectado ao servidor' : '● Offline — dados salvos localmente'}
+            </Text>
           </View>
-          <View style={s.statCard}>
-            <Text style={[s.statVal, { color: C.successDark }]}>{myConcluded.length}</Text>
-            <Text style={s.statLabel}>Concluídas</Text>
-          </View>
-          <View style={s.statCard}>
-            <Text style={[s.statVal, { color: C.infoDark }]}>{incidents.length}</Text>
-            <Text style={s.statLabel}>Incidentes</Text>
+          <Text style={[s.syncTxt, { color: isOnline ? C.successDark : C.warningDark }]}>
+            Última sync: {formatSync(lastSync)}
+          </Text>
+          {pendingCount > 0 && (
+            <Text style={s.pendingTxt}>⚠️ {pendingCount} item(s) aguardando sincronização</Text>
+          )}
+        </View>
+
+        {/* Estatísticas */}
+        <View style={s.statsCard}>
+          <Text style={s.sectionTitle}>Minhas Estatísticas</Text>
+          <View style={s.statsGrid}>
+            <View style={s.statItem}>
+              <Text style={s.statVal}>{myChecklists.length}</Text>
+              <Text style={s.statLabel}>Inspeções</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statItem}>
+              <Text style={[s.statVal, { color: C.success }]}>{myConcluded.length}</Text>
+              <Text style={s.statLabel}>Concluídas</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statItem}>
+              <Text style={[s.statVal, { color: C.info }]}>{myIncidents.length}</Text>
+              <Text style={s.statLabel}>Incidentes</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statItem}>
+              <Text style={[s.statVal, { color: C.primary }]}>
+                {myChecklists.length > 0 ? Math.round((myConcluded.length / myChecklists.length) * 100) : 0}%
+              </Text>
+              <Text style={s.statLabel}>Conform.</Text>
+            </View>
           </View>
         </View>
 
-        <View style={s.section}>
+        {/* NRs habilitadas */}
+        <View style={s.nrCard}>
           <Text style={s.sectionTitle}>NRs Habilitadas</Text>
+          <Text style={s.sectionSub}>{NRS_ALL.length} normas disponíveis</Text>
           <View style={s.nrGrid}>
-            {NRS.map((nr) => (
+            {NRS_ALL.map((nr) => (
               <View key={nr} style={s.nrChip}>
-                <Text style={s.nrChipTxt}>{nr}</Text>
                 <Text style={s.nrCheck}>✓</Text>
+                <Text style={s.nrTxt}>{nr}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        <View style={s.section}>
+        {/* Informações da conta */}
+        <View style={s.infoCard}>
           <Text style={s.sectionTitle}>Informações da Conta</Text>
-          <View style={s.infoRow}>
-            <Text style={s.infoLabel}>Nome</Text>
-            <Text style={s.infoVal}>{user?.name}</Text>
-          </View>
-          <View style={s.infoRow}>
-            <Text style={s.infoLabel}>E-mail</Text>
-            <Text style={s.infoVal}>{user?.email}</Text>
-          </View>
-          <View style={s.infoRow}>
-            <Text style={s.infoLabel}>Perfil</Text>
-            <Text style={s.infoVal}>{roleName[user?.role] || user?.role}</Text>
-          </View>
-          {user?.obra && (
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Obra</Text>
-              <Text style={s.infoVal}>{user.obra}</Text>
+          {[
+            { label: 'Nome', value: user?.name },
+            { label: 'E-mail', value: user?.email },
+            { label: 'Perfil', value: roleConf.label },
+            { label: 'Obra', value: user?.obra || 'Não informado' },
+          ].map((item) => (
+            <View key={item.label} style={s.infoRow}>
+              <Text style={s.infoLabel}>{item.label}</Text>
+              <Text style={s.infoVal} numberOfLines={1}>{item.value}</Text>
             </View>
-          )}
+          ))}
         </View>
 
-        <TouchableOpacity style={s.logoutBtn} onPress={logout}>
+        {/* Logo + versão */}
+        <View style={s.brandBox}>
+          <Logo size="md" />
+          <Text style={s.versionTxt}>v3.1.0 · Praia Grande, SP</Text>
+        </View>
+
+        {/* Botão sair */}
+        <TouchableOpacity style={s.logoutBtn} onPress={logout} activeOpacity={0.8}>
           <Text style={s.logoutTxt}>🚪 Sair da Conta</Text>
         </TouchableOpacity>
 
-        <View style={s.footer}>
-          <Logo size="sm" />
-          <Text style={s.footerTxt}>Treinar Engenharia v3.0.0</Text>
-          <Text style={s.footerSub}>Praia Grande, SP</Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.offWhite },
-  scroll: { padding: S.md, paddingBottom: S.xxl },
-  profileCard: { backgroundColor: C.black, borderRadius: R.xl, padding: S.xl, alignItems: 'center', marginBottom: S.md, ...Sh.md },
-  avatarBox: { width: 72, height: 72, borderRadius: 36, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', marginBottom: S.md },
-  avatarTxt: { fontSize: F.xxxl, fontWeight: '800', color: C.black },
-  name: { fontSize: F.xl, fontWeight: '700', color: C.white },
-  email: { fontSize: F.sm, color: C.textMuted, marginTop: S.xs },
-  roleBadge: { marginTop: S.sm, borderRadius: R.full, paddingHorizontal: S.md, paddingVertical: S.xs },
-  roleTxt: { fontWeight: '700', fontSize: F.sm },
-  obra: { fontSize: F.sm, color: C.textMuted, marginTop: S.sm },
-  statsRow: { flexDirection: 'row', gap: S.sm, marginBottom: S.md },
-  statCard: { flex: 1, backgroundColor: C.card, borderRadius: R.xl, padding: S.md, alignItems: 'center', ...Sh.sm },
-  statVal: { fontSize: F.xxl, fontWeight: '800', color: C.textPrimary },
-  statLabel: { fontSize: F.xs, color: C.textSecondary },
-  section: { backgroundColor: C.card, borderRadius: R.xl, padding: S.md, marginBottom: S.md, ...Sh.sm },
-  sectionTitle: { fontSize: F.md, fontWeight: '700', color: C.textPrimary, marginBottom: S.md },
-  nrGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm },
-  nrChip: { flexDirection: 'row', alignItems: 'center', gap: S.xs, backgroundColor: C.successBg, borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: S.xs },
-  nrChipTxt: { fontSize: F.xs, fontWeight: '700', color: C.successDark },
-  nrCheck: { fontSize: F.xs, color: C.successDark },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: S.sm, borderBottomWidth: 1, borderBottomColor: C.border },
-  infoLabel: { fontSize: F.sm, color: C.textSecondary },
-  infoVal: { fontSize: F.sm, fontWeight: '600', color: C.textPrimary },
-  logoutBtn: { backgroundColor: C.dangerBg, borderRadius: R.lg, padding: S.md, alignItems: 'center', marginBottom: S.xl, borderWidth: 1, borderColor: C.danger },
-  logoutTxt: { fontWeight: '700', fontSize: F.md, color: C.dangerDark },
-  footer: { alignItems: 'center', gap: S.xs },
-  footerTxt: { fontSize: F.sm, color: C.textMuted, fontWeight: '600' },
-  footerSub: { fontSize: F.xs, color: C.textMuted },
+  safe: { flex: 1, backgroundColor: C.bg },
+  scroll: { padding: S.md, paddingBottom: 100 },
+
+  profileCard: { backgroundColor: C.black, borderRadius: R.xxl, padding: S.xl, alignItems: 'center', marginBottom: S.md, ...Sh.md },
+  avatarBig: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: S.md },
+  avatarTxt: { fontSize: F.display, fontWeight: '900' },
+  profileName: { fontSize: F.xl, fontWeight: '800', color: C.white, marginBottom: S.xs },
+  profileEmail: { fontSize: F.sm, color: C.gray500, marginBottom: S.md },
+  rolePill: { flexDirection: 'row', alignItems: 'center', gap: S.xs, borderRadius: R.full, paddingHorizontal: S.md, paddingVertical: S.xs },
+  roleEmoji: { fontSize: F.md },
+  roleTxt: { fontWeight: '800', fontSize: F.sm },
+  obraRow: { marginTop: S.sm },
+  obraTxt: { fontSize: F.sm, color: C.gray500 },
+
+  statusCard: { borderRadius: R.xl, padding: S.md, marginBottom: S.md, borderWidth: 1 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: S.xs, marginBottom: S.xs },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusTxt: { fontSize: F.sm, fontWeight: '700' },
+  syncTxt: { fontSize: F.xs, fontWeight: '600' },
+  pendingTxt: { fontSize: F.xs, color: C.warningDark, fontWeight: '700', marginTop: S.xs },
+
+  statsCard: { backgroundColor: C.card, borderRadius: R.xxl, padding: S.md, marginBottom: S.md, ...Sh.xs },
+  sectionTitle: { fontSize: F.md, fontWeight: '800', color: C.textPrimary, marginBottom: S.xs },
+  sectionSub: { fontSize: F.xs, color: C.textTertiary, marginBottom: S.md },
+  statsGrid: { flexDirection: 'row', alignItems: 'center', paddingVertical: S.sm },
+  statItem: { flex: 1, alignItems: 'center' },
+  statVal: { fontSize: F.xxl, fontWeight: '900', color: C.textPrimary },
+  statLabel: { fontSize: F.xs, color: C.textTertiary, fontWeight: '600', marginTop: 2 },
+  statDivider: { width: 1, height: 36, backgroundColor: C.border },
+
+  nrCard: { backgroundColor: C.card, borderRadius: R.xxl, padding: S.md, marginBottom: S.md, ...Sh.xs },
+  nrGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.xs },
+  nrChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.successBg, borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: S.xs },
+  nrCheck: { fontSize: F.xs, color: C.successDark, fontWeight: '900' },
+  nrTxt: { fontSize: F.xs, fontWeight: '800', color: C.successDark },
+
+  infoCard: { backgroundColor: C.card, borderRadius: R.xxl, padding: S.md, marginBottom: S.md, ...Sh.xs },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: S.sm, borderBottomWidth: 1, borderBottomColor: C.divider },
+  infoLabel: { fontSize: F.sm, color: C.textTertiary, fontWeight: '600' },
+  infoVal: { fontSize: F.sm, fontWeight: '700', color: C.textPrimary, maxWidth: '60%', textAlign: 'right' },
+
+  brandBox: { alignItems: 'center', gap: S.sm, marginBottom: S.lg, paddingVertical: S.md },
+  versionTxt: { fontSize: F.xs, color: C.textTertiary, fontWeight: '600' },
+
+  logoutBtn: { backgroundColor: C.dangerBg, borderRadius: R.xl, padding: S.md, alignItems: 'center', borderWidth: 1.5, borderColor: C.dangerBorder },
+  logoutTxt: { fontWeight: '800', fontSize: F.md, color: C.dangerDark },
 });
