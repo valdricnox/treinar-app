@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Treinar Engenharia",
+    "slug": "treinar-engenharia",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": { "backgroundColor": "#F5C800", "resizeMode": "contain" },
+    "scheme": "treinar",
+    "ios": { "supportsTablet": false, "bundleIdentifier": "br.eng.treinar.app" },
+    "android": {
+      "package": "br.eng.treinar.app",
+      "versionCode": 2,
+      "adaptiveIcon": { "backgroundColor": "#F5C800" },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    }
+  }
+}
