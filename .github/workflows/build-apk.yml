@@ -1,32 +1,46 @@
-name: Build Android APK
+name: Build APK
+
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - uses: actions/setup-java@v4
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
-      - uses: android-actions/setup-android@v3
-      - name: Install deps
-        run: npm install --legacy-peer-deps
-      - name: Install Expo CLI
-        run: npm install -g @expo/cli
-      - name: Prebuild
-        run: npx expo prebuild --platform android --clean
+          java-version: '17'
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install
+
       - name: Build APK
-        working-directory: android
-        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
-      - uses: actions/upload-artifact@v4
+        run: npx eas build --platform android --profile preview --non-interactive --local --output ./treinar-app.apk
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: treinar-app-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: treinar-app.apk
           retention-days: 30

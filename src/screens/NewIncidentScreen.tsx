@@ -1,132 +1,198 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, StatusBar } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Alert, ActivityIndicator, Image,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useDispatch, useSelector } from 'react-redux';
 import { addIncident, RootState } from '../store';
-import { incidentApi } from '../services/api';
+import api from '../services/api';
 import { C, S, R, F, Sh } from '../theme';
+
+const SEVERIDADES = [
+  { key: 'critico', label: '🔴 Crítico', bg: C.dangerBg, text: C.dangerDark, border: C.danger },
+  { key: 'alto', label: '🟠 Alto', bg: C.warningBg, text: C.warningDark, border: C.warning },
+  { key: 'medio', label: '🔵 Médio', bg: C.infoBg, text: C.infoDark, border: C.info },
+  { key: 'baixo', label: '🟢 Baixo', bg: C.successBg, text: C.successDark, border: C.success },
+];
+
+const TIPOS = ['Acidente', 'Quase Acidente', 'Condição Insegura', 'Ato Inseguro', 'Doença Ocupacional', 'Outro'];
 
 export default function NewIncidentScreen({ navigation }: any) {
   const dispatch = useDispatch();
   const user = useSelector((s: RootState) => s.auth.user);
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
-  const [sev, setSev] = useState<'alta'|'media'|'baixa'>('media');
-  const [tipo, setTipo] = useState('nao_conformidade');
+  const [severidade, setSeveridade] = useState('medio');
+  const [tipo, setTipo] = useState('');
   const [local, setLocal] = useState('');
   const [acao, setAcao] = useState('');
+  const [fotos, setFotos] = useState<string[]>([]);
+  const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async () => {
-    if (!titulo.trim() || !descricao.trim() || !local.trim()) {
-      Alert.alert('Campos obrigatórios', 'Preencha título, descrição e local.');
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permissão', 'Câmera não permitida.'); return; }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    if (!result.canceled && result.assets[0]) setFotos([...fotos, result.assets[0].uri]);
+  };
+
+  const pickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
+    if (!result.canceled && result.assets[0]) setFotos([...fotos, result.assets[0].uri]);
+  };
+
+  const getGPS = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permissão', 'Localização não permitida.'); return; }
+    const loc = await Location.getCurrentPositionAsync({});
+    setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    Alert.alert('GPS', 'Localização capturada com sucesso!');
+  };
+
+  const salvar = async () => {
+    if (!titulo.trim() || !descricao.trim() || !local.trim() || !tipo) {
+      Alert.alert('Atenção', 'Preencha título, descrição, tipo e local.');
       return;
     }
     setLoading(true);
     const payload = {
-      id: Date.now().toString(),
-      titulo: titulo.trim(), descricao: descricao.trim(),
-      severidade: sev, tipo, local: local.trim(),
-      obra: user?.obra ?? '', responsavel: user?.name ?? '',
-      status: 'aberto' as const, fotos: [],
-      acao: acao.trim() || undefined,
-      dataCriacao: new Date().toISOString(), syncPendente: false,
+      titulo: titulo.trim(),
+      descricao: descricao.trim(),
+      severidade,
+      tipo,
+      local: local.trim(),
+      obra: local.trim(),
+      responsavel: user?.name,
+      user_id: user?.id,
+      acao: acao.trim(),
+      fotos,
+      geolocation: location,
+      status: 'aberto',
     };
     try {
-      const res = await incidentApi.criar(payload);
-      dispatch(addIncident({...payload, id: res.data.id ?? payload.id, syncPendente: false}));
-      Alert.alert('✅ Incidente reportado!', sev==='alta'?'Gestor notificado imediatamente.':'Registrado com sucesso.');
-      navigation.goBack();
+      const res = await api.post('/incidentes', payload);
+      dispatch(addIncident(res.data?.incidente || { ...payload, id: Date.now(), data_criacao: new Date().toISOString() }));
+      Alert.alert('Registrado!', 'Incidente registrado com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch {
-      dispatch(addIncident(payload));
-      Alert.alert('Salvo localmente', 'Será sincronizado quando houver conexão.');
-      navigation.goBack();
-    } finally { setLoading(false); }
+      Alert.alert('Erro', 'Não foi possível registrar. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const SEV = [
-    {k:'alta'  as const, label:'Alta',  emoji:'🔴', color:C.danger},
-    {k:'media' as const, label:'Média', emoji:'🟡', color:C.warning},
-    {k:'baixa' as const, label:'Baixa', emoji:'🟢', color:C.success},
-  ];
-  const TIPOS = [
-    {k:'nao_conformidade',l:'Não-conformidade'},
-    {k:'acidente',l:'Acidente'},
-    {k:'quase_acidente',l:'Quase-acidente'},
-    {k:'observacao',l:'Observação'},
-  ];
-
   return (
-    <View style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={C.dangerMed} />
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{alignSelf:'flex-end',marginBottom:S.sm}}>
-          <Text style={{color:'rgba(255,255,255,0.8)',fontSize:F.sm}}>✕ Fechar</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Reportar Incidente</Text>
-        <Text style={s.sub}>Registro de não-conformidades e ocorrências</Text>
-      </View>
+    <SafeAreaView style={s.safe} edges={['bottom']}>
+      <ScrollView contentContainerStyle={s.scroll}>
+        <Text style={s.pageTitle}>Novo Incidente</Text>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{padding:S.lg,paddingBottom:120}}>
-        <Text style={s.label}>SEVERIDADE *</Text>
-        <View style={{flexDirection:'row',gap:S.md,marginBottom:S.md}}>
-          {SEV.map(o => (
-            <TouchableOpacity key={o.k} style={[s.sevBtn, sev===o.k && {backgroundColor:o.color,borderColor:o.color}]} onPress={() => setSev(o.k)}>
-              <Text style={{fontSize:18}}>{o.emoji}</Text>
-              <Text style={[{fontSize:F.sm,fontWeight:'700',color:C.textPrimary}, sev===o.k && {color:'#fff'}]}>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <View style={s.card}>
+          <Text style={s.label}>Título *</Text>
+          <TextInput style={s.input} value={titulo} onChangeText={setTitulo} placeholder="Descrição breve do incidente" placeholderTextColor={C.textMuted} />
 
-        <Text style={s.label}>TIPO DE OCORRÊNCIA *</Text>
-        <View style={{flexDirection:'row',flexWrap:'wrap',gap:S.sm,marginBottom:S.md}}>
-          {TIPOS.map(o => (
-            <TouchableOpacity key={o.k} style={[s.tipoBtn, tipo===o.k && s.tipoBtnActive]} onPress={() => setTipo(o.k)}>
-              <Text style={[s.tipoText, tipo===o.k && {color:C.yellow}]}>{o.l}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={s.label}>TÍTULO *</Text>
-        <TextInput style={s.input} value={titulo} onChangeText={setTitulo} placeholder="Ex: Trabalhador sem capacete na área de risco" placeholderTextColor={C.textMuted} />
-
-        <Text style={s.label}>DESCRIÇÃO DETALHADA *</Text>
-        <TextInput style={[s.input,{minHeight:100}]} value={descricao} onChangeText={setDescricao} placeholder="Descreva o que foi observado, onde, como e quem estava envolvido..." placeholderTextColor={C.textMuted} multiline numberOfLines={4} textAlignVertical="top" />
-
-        <Text style={s.label}>LOCAL *</Text>
-        <TextInput style={s.input} value={local} onChangeText={setLocal} placeholder="Ex: Bloco C, 3° andar, próximo ao elevador" placeholderTextColor={C.textMuted} />
-
-        <Text style={s.label}>AÇÃO IMEDIATA TOMADA</Text>
-        <TextInput style={[s.input,{minHeight:80}]} value={acao} onChangeText={setAcao} placeholder="Ação corretiva tomada imediatamente..." placeholderTextColor={C.textMuted} multiline numberOfLines={3} textAlignVertical="top" />
-
-        {sev === 'alta' && (
-          <View style={{flexDirection:'row',alignItems:'center',gap:S.md,backgroundColor:C.dangerLight,borderRadius:R.md,padding:S.md,marginTop:S.lg}}>
-            <Text style={{fontSize:20}}>🚨</Text>
-            <Text style={{flex:1,fontSize:F.sm,color:C.danger,lineHeight:18}}>Incidente CRÍTICO — o gestor será notificado imediatamente após o envio.</Text>
+          <Text style={s.label}>Severidade *</Text>
+          <View style={s.sevGrid}>
+            {SEVERIDADES.map((sev) => (
+              <TouchableOpacity
+                key={sev.key}
+                style={[s.sevOption, { backgroundColor: sev.bg, borderColor: severidade === sev.key ? sev.border : C.border, borderWidth: severidade === sev.key ? 2 : 1 }]}
+                onPress={() => setSeveridade(sev.key)}
+              >
+                <Text style={[s.sevTxt, { color: sev.text }]}>{sev.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        )}
-      </ScrollView>
 
-      <View style={s.footer}>
-        <TouchableOpacity style={[s.btnSubmit, sev==='alta' && {backgroundColor:C.danger}]} onPress={handleSubmit} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnSubmitText}>⚡ Enviar Reporte</Text>}
+          <Text style={s.label}>Tipo *</Text>
+          <View style={s.tipoGrid}>
+            {TIPOS.map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[s.tipoChip, tipo === t && s.tipoChipActive]}
+                onPress={() => setTipo(t)}
+              >
+                <Text style={[s.tipoChipTxt, tipo === t && s.tipoChipActiveTxt]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={s.label}>Local / Obra *</Text>
+          <TextInput style={s.input} value={local} onChangeText={setLocal} placeholder="Local onde ocorreu" placeholderTextColor={C.textMuted} />
+
+          <Text style={s.label}>Descrição Detalhada *</Text>
+          <TextInput
+            style={s.textArea} value={descricao} onChangeText={setDescricao}
+            placeholder="Descreva o incidente com detalhes..." placeholderTextColor={C.textMuted}
+            multiline numberOfLines={5}
+          />
+
+          <Text style={s.label}>Ação Corretiva</Text>
+          <TextInput
+            style={[s.textArea, { minHeight: 80 }]} value={acao} onChangeText={setAcao}
+            placeholder="Descreva as ações corretivas tomadas..." placeholderTextColor={C.textMuted}
+            multiline numberOfLines={3}
+          />
+        </View>
+
+        <View style={s.card}>
+          <Text style={s.sectionTitle}>Fotos</Text>
+          <View style={s.photoRow}>
+            <TouchableOpacity style={s.photoBtn} onPress={takePhoto}>
+              <Text style={s.photoBtnTxt}>📷 Câmera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.photoBtn} onPress={pickPhoto}>
+              <Text style={s.photoBtnTxt}>🖼 Galeria</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={s.photoGrid}>
+            {fotos.map((uri, i) => <Image key={i} source={{ uri }} style={s.photoThumb} />)}
+          </View>
+        </View>
+
+        <View style={s.card}>
+          <Text style={s.sectionTitle}>Localização GPS</Text>
+          <TouchableOpacity style={s.gpsBtn} onPress={getGPS}>
+            <Text style={s.gpsBtnTxt}>
+              {location ? `✅ ${location.lat?.toFixed(4)}, ${location.lng?.toFixed(4)}` : '📍 Capturar Localização'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={s.btn} onPress={salvar} disabled={loading}>
+          {loading ? <ActivityIndicator color={C.black} /> : <Text style={s.btnTxt}>⚠️ Registrar Incidente</Text>}
         </TouchableOpacity>
-      </View>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container:{flex:1,backgroundColor:C.offWhite},
-  header:{backgroundColor:C.dangerMed,paddingTop:52,paddingHorizontal:S.xl,paddingBottom:S.xl},
-  title:{fontSize:F.xxl,color:'#fff',fontWeight:'700'},
-  sub:{fontSize:F.sm,color:'rgba(255,255,255,0.7)',marginTop:4},
-  label:{fontSize:F.xs,fontWeight:'700',color:C.textMuted,letterSpacing:1,marginBottom:S.sm,marginTop:S.lg},
-  input:{backgroundColor:C.white,borderWidth:1.5,borderColor:C.border,borderRadius:R.md,padding:S.md,fontSize:F.base,color:C.textPrimary,...Sh.sm},
-  sevBtn:{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:S.sm,borderWidth:2,borderColor:C.border,borderRadius:R.md,paddingVertical:S.md,backgroundColor:C.white},
-  tipoBtn:{borderWidth:1.5,borderColor:C.border,borderRadius:R.md,paddingHorizontal:S.md,paddingVertical:S.sm,backgroundColor:C.white},
-  tipoBtnActive:{borderColor:C.black,backgroundColor:C.black},
-  tipoText:{fontSize:F.sm,color:C.textSecondary},
-  footer:{position:'absolute',bottom:0,left:0,right:0,backgroundColor:C.white,borderTopWidth:1,borderTopColor:C.border,padding:S.lg},
-  btnSubmit:{backgroundColor:C.dangerMed,borderRadius:R.full,padding:S.lg,alignItems:'center'},
-  btnSubmitText:{fontSize:F.base,fontWeight:'700',color:'#fff'},
+  safe: { flex: 1, backgroundColor: C.offWhite },
+  scroll: { padding: S.md, paddingBottom: S.xxl },
+  pageTitle: { fontSize: F.xxl, fontWeight: '800', color: C.textPrimary, marginBottom: S.md },
+  card: { backgroundColor: C.card, borderRadius: R.xl, padding: S.md, marginBottom: S.md, ...Sh.sm },
+  label: { fontSize: F.sm, fontWeight: '600', color: C.textSecondary, marginBottom: S.xs, marginTop: S.sm },
+  sectionTitle: { fontSize: F.md, fontWeight: '700', color: C.textPrimary, marginBottom: S.md },
+  input: { borderWidth: 1, borderColor: C.border, borderRadius: R.md, padding: S.md, fontSize: F.sm, color: C.textPrimary, backgroundColor: C.offWhite },
+  textArea: { borderWidth: 1, borderColor: C.border, borderRadius: R.md, padding: S.md, fontSize: F.sm, color: C.textPrimary, minHeight: 120, textAlignVertical: 'top' },
+  sevGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm, marginBottom: S.xs },
+  sevOption: { flex: 1, minWidth: '45%', borderRadius: R.md, padding: S.sm, alignItems: 'center' },
+  sevTxt: { fontWeight: '700', fontSize: F.sm },
+  tipoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.xs },
+  tipoChip: { paddingHorizontal: S.sm, paddingVertical: S.xs, borderRadius: R.full, borderWidth: 1, borderColor: C.border, backgroundColor: C.offWhite },
+  tipoChipActive: { backgroundColor: C.black, borderColor: C.black },
+  tipoChipTxt: { fontSize: F.xs, color: C.textSecondary, fontWeight: '600' },
+  tipoChipActiveTxt: { color: C.primary },
+  photoRow: { flexDirection: 'row', gap: S.sm, marginBottom: S.sm },
+  photoBtn: { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: R.md, padding: S.sm, alignItems: 'center' },
+  photoBtnTxt: { fontSize: F.sm, color: C.textSecondary },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm },
+  photoThumb: { width: 80, height: 80, borderRadius: R.md },
+  gpsBtn: { borderWidth: 1, borderColor: C.border, borderRadius: R.md, padding: S.md, alignItems: 'center' },
+  gpsBtnTxt: { fontSize: F.sm, color: C.textSecondary },
+  btn: { backgroundColor: C.danger, borderRadius: R.lg, padding: S.md + 2, alignItems: 'center', ...Sh.sm },
+  btnTxt: { fontWeight: '700', fontSize: F.md, color: C.white },
 });

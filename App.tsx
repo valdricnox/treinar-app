@@ -1,47 +1,120 @@
-import React, { Component } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Provider, useSelector } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
-import { View, Text, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { store, persistor, RootState } from './src/store';
-import { C } from './src/theme';
+import { C, F } from './src/theme';
 
-import LoginScreen           from './src/screens/LoginScreen';
-import DashboardScreen       from './src/screens/DashboardScreen';
-import ChecklistsScreen      from './src/screens/ChecklistsScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
+import ChecklistsScreen from './src/screens/ChecklistsScreen';
 import ChecklistDetailScreen from './src/screens/ChecklistDetailScreen';
-import NewChecklistScreen    from './src/screens/NewChecklistScreen';
-import IncidentsScreen       from './src/screens/IncidentsScreen';
-import NewIncidentScreen     from './src/screens/NewIncidentScreen';
-import ReportsScreen         from './src/screens/ReportsScreen';
-import ProfileScreen         from './src/screens/ProfileScreen';
+import NewChecklistScreen from './src/screens/NewChecklistScreen';
+import IncidentsScreen from './src/screens/IncidentsScreen';
+import NewIncidentScreen from './src/screens/NewIncidentScreen';
+import ReportsScreen from './src/screens/ReportsScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import TeamScreen from './src/screens/TeamScreen';
 
-// ─── ERROR BOUNDARY ──────────────────────────────────────────────────────────
-class ErrorBoundary extends Component<{children: React.ReactNode}, {error: string|null}> {
-  state = { error: null };
-  static getDerivedStateFromError(e: any) { return { error: e?.message ?? String(e) }; }
-  componentDidCatch(e: any, info: any) { console.error('App crash:', e, info); }
+const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+function ChecklistStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: C.black }, headerTintColor: C.primary, headerTitleStyle: { fontWeight: '700' } }}>
+      <Stack.Screen name="Checklists" component={ChecklistsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="ChecklistDetail" component={ChecklistDetailScreen} options={{ title: 'Detalhe da Inspeção' }} />
+      <Stack.Screen name="NewChecklist" component={NewChecklistScreen} options={{ title: 'Nova Inspeção' }} />
+    </Stack.Navigator>
+  );
+}
+
+function IncidentStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: C.black }, headerTintColor: C.primary, headerTitleStyle: { fontWeight: '700' } }}>
+      <Stack.Screen name="Incidents" component={IncidentsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="NewIncident" component={NewIncidentScreen} options={{ title: 'Novo Incidente' }} />
+    </Stack.Navigator>
+  );
+}
+
+function TabIcon({ label, focused }: { label: string; focused: boolean }) {
+  const icons: any = {
+    Dashboard: '📊', Inspeções: '📋', Incidentes: '⚠️', Relatórios: '📄', Equipe: '👥', Perfil: '👤',
+  };
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <View style={focused ? ic.activeDot : null} />
+      <View style={[ic.iconBox, focused && ic.iconBoxActive]}>
+        <ActivityIndicator style={{ display: 'none' }} />
+        <View><View><View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}></View></View></View>
+      </View>
+    </View>
+  );
+}
+
+function MainApp() {
+  const { isLoggedIn, user } = useSelector((s: RootState) => s.auth);
+  const isAdminOrGestor = user?.role === 'admin' || user?.role === 'gestor';
+
+  if (!isLoggedIn) return <LoginScreen />;
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: C.black,
+          borderTopColor: '#2A2A2A',
+          height: 60,
+          paddingBottom: 8,
+        },
+        tabBarActiveTintColor: C.primary,
+        tabBarInactiveTintColor: '#666',
+        tabBarLabelStyle: { fontSize: F.xs, fontWeight: '600' },
+      })}
+    >
+      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarIcon: ({ focused }) => <TabEmoji emoji="📊" focused={focused} />, tabBarLabel: 'Dashboard' }} />
+      <Tab.Screen name="Inspeções" component={ChecklistStack} options={{ tabBarIcon: ({ focused }) => <TabEmoji emoji="📋" focused={focused} />, tabBarLabel: 'Inspeções' }} />
+      <Tab.Screen name="Incidentes" component={IncidentStack} options={{ tabBarIcon: ({ focused }) => <TabEmoji emoji="⚠️" focused={focused} />, tabBarLabel: 'Incidentes' }} />
+      <Tab.Screen name="Relatórios" component={ReportsScreen} options={{ tabBarIcon: ({ focused }) => <TabEmoji emoji="📄" focused={focused} />, tabBarLabel: 'Relatórios' }} />
+      {isAdminOrGestor
+        ? <Tab.Screen name="Equipe" component={TeamScreen} options={{ tabBarIcon: ({ focused }) => <TabEmoji emoji="👥" focused={focused} />, tabBarLabel: 'Equipe' }} />
+        : <Tab.Screen name="Perfil" component={ProfileScreen} options={{ tabBarIcon: ({ focused }) => <TabEmoji emoji="👤" focused={focused} />, tabBarLabel: 'Perfil' }} />
+      }
+    </Tab.Navigator>
+  );
+}
+
+function TabEmoji({ emoji, focused }: { emoji: string; focused: boolean }) {
+  const { Text } = require('react-native');
+  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
+}
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
   render() {
-    if (this.state.error) {
+    const { Text, View, TouchableOpacity } = require('react-native');
+    if (this.state.hasError) {
       return (
-        <View style={{flex:1,backgroundColor:'#1A1A1A',padding:24,paddingTop:60}}>
-          <Text style={{color:'#F5C800',fontSize:20,fontWeight:'700',marginBottom:16}}>
-            🐛 Erro detectado
-          </Text>
-          <ScrollView style={{flex:1}}>
-            <Text style={{color:'#fff',fontSize:13,fontFamily:'monospace',lineHeight:20}}>
-              {this.state.error}
-            </Text>
-          </ScrollView>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.black, padding: 32 }}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>⚠️</Text>
+          <Text style={{ color: C.white, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Algo deu errado</Text>
+          <Text style={{ color: '#666', textAlign: 'center', marginBottom: 24 }}>Reinicie o aplicativo para continuar.</Text>
           <TouchableOpacity
-            style={{backgroundColor:'#F5C800',borderRadius:999,padding:16,alignItems:'center',marginTop:24}}
-            onPress={() => this.setState({ error: null })}
+            style={{ backgroundColor: C.primary, padding: 16, borderRadius: 12 }}
+            onPress={() => this.setState({ hasError: false })}
           >
-            <Text style={{fontWeight:'700',color:'#1A1A1A'}}>Tentar novamente</Text>
+            <Text style={{ fontWeight: '700', color: C.black }}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>
       );
@@ -50,79 +123,30 @@ class ErrorBoundary extends Component<{children: React.ReactNode}, {error: strin
   }
 }
 
-// ─── NAVIGATION ──────────────────────────────────────────────────────────────
-const Tab   = createBottomTabNavigator();
-const Stack = createStackNavigator();
-
-const ICONS: Record<string, string> = {
-  Dashboard:'🏠', Checklists:'☑️', Incidents:'⚠️', Reports:'📄', Profile:'👤'
-};
-
-function MainTabs() {
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: { backgroundColor:'#fff', borderTopColor:'#E5E5E2', height:62, paddingBottom:8, paddingTop:4 },
-        tabBarActiveTintColor: '#F5C800',
-        tabBarInactiveTintColor: '#999',
-        tabBarLabelStyle: { fontSize:10 },
-        tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize:20, opacity: focused ? 1 : 0.5 }}>{ICONS[route.name] ?? '•'}</Text>
-        ),
-      })}
-    >
-      <Tab.Screen name="Dashboard"  component={DashboardScreen}  options={{ tabBarLabel:'Home' }} />
-      <Tab.Screen name="Checklists" component={ChecklistsScreen} options={{ tabBarLabel:'Checklists' }} />
-      <Tab.Screen name="Incidents"  component={IncidentsScreen}  options={{ tabBarLabel:'Incidentes' }} />
-      <Tab.Screen name="Reports"    component={ReportsScreen}    options={{ tabBarLabel:'Relatórios' }} />
-      <Tab.Screen name="Profile"    component={ProfileScreen}    options={{ tabBarLabel:'Perfil' }} />
-    </Tab.Navigator>
-  );
-}
-
-function AppNavigator() {
-  const isAuth = useSelector((s: RootState) => s.auth.isAuthenticated);
-  return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{ headerShown: false, animationEnabled: true }}
-        initialRouteName={isAuth ? 'Main' : 'Login'}
-      >
-        <Stack.Screen name="Login"           component={LoginScreen} />
-        <Stack.Screen name="Main"            component={MainTabs} />
-        <Stack.Screen name="ChecklistDetail" component={ChecklistDetailScreen} />
-        <Stack.Screen name="NewChecklist"    component={NewChecklistScreen}    options={{ presentation:'modal' }} />
-        <Stack.Screen name="NewIncident"     component={NewIncidentScreen}     options={{ presentation:'modal' }} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
-
-function Loading() {
-  return (
-    <View style={{ flex:1, backgroundColor:'#F5C800', alignItems:'center', justifyContent:'center' }}>
-      <View style={{ width:80, height:80, borderRadius:18, backgroundColor:'#1A1A1A', alignItems:'center', justifyContent:'center', marginBottom:24 }}>
-        <Text style={{ fontSize:40, fontWeight:'900', color:'#F5C800' }}>T</Text>
-      </View>
-      <Text style={{ fontSize:22, fontWeight:'900', color:'#1A1A1A', letterSpacing:4, marginBottom:8 }}>TREINAR</Text>
-      <ActivityIndicator color="#1A1A1A" size="large" />
-    </View>
-  );
-}
-
 export default function App() {
   return (
-    <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex:1 }}>
-        <SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ErrorBoundary>
           <Provider store={store}>
-            <PersistGate loading={<Loading />} persistor={persistor}>
-              <AppNavigator />
+            <PersistGate loading={<View style={s.loading}><ActivityIndicator color={C.primary} size="large" /></View>} persistor={persistor}>
+              <NavigationContainer>
+                <MainApp />
+              </NavigationContainer>
             </PersistGate>
           </Provider>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </ErrorBoundary>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const s = StyleSheet.create({
+  loading: { flex: 1, backgroundColor: C.black, alignItems: 'center', justifyContent: 'center' },
+});
+
+const ic = StyleSheet.create({
+  iconBox: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  iconBoxActive: { backgroundColor: 'rgba(245,200,0,0.15)' },
+  activeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.primary, position: 'absolute', top: -6 },
+});

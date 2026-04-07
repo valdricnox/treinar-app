@@ -1,99 +1,150 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState, setChecklists, setIncidents } from '../store';
-import { checklistApi, incidentApi } from '../services/api';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
+import api from '../services/api';
+import { C, S, R, F, Sh } from '../theme';
 
-export default function DashboardScreen({ navigation }: any) {
-  const dispatch = useDispatch();
+const KPICard = ({ label, value, color, bg }: any) => (
+  <View style={[s.kpi, { backgroundColor: bg }]}>
+    <Text style={[s.kpiVal, { color }]}>{value}</Text>
+    <Text style={s.kpiLabel}>{label}</Text>
+  </View>
+);
+
+const NRBar = ({ nr, pct, color }: any) => (
+  <View style={s.nrRow}>
+    <Text style={s.nrLabel}>{nr}</Text>
+    <View style={s.barBg}>
+      <View style={[s.barFill, { width: `${pct}%`, backgroundColor: color }]} />
+    </View>
+    <Text style={s.nrPct}>{pct}%</Text>
+  </View>
+);
+
+export default function DashboardScreen() {
   const user = useSelector((s: RootState) => s.auth.user);
-  const checklists = useSelector((s: RootState) => s.checklists.items);
-  const incidents = useSelector((s: RootState) => s.incidents.items);
-  const isOffline = useSelector((s: RootState) => s.app.isOffline);
+  const checklists = useSelector((s: RootState) => s.checklists.list);
+  const incidents = useSelector((s: RootState) => s.incidents.list);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetch = async () => {
-    try {
-      const [cl, inc] = await Promise.all([checklistApi.listar(), incidentApi.listar()]);
-      dispatch(setChecklists(cl.data));
-      dispatch(setIncidents(inc.data));
-    } catch {}
-  };
+  const total = checklists.length;
+  const concluidos = checklists.filter((c) => c.status === 'concluido').length;
+  const emAndamento = checklists.filter((c) => c.status === 'em_andamento').length;
+  const incCriticos = incidents.filter((i) => i.severidade === 'critico').length;
+  const conformidade = total > 0 ? Math.round((concluidos / total) * 100) : 0;
 
-  useEffect(() => { fetch(); }, []);
-
-  const pendentes = checklists.filter(c => c.status === 'pendente').length;
-  const criticos = incidents.filter(i => i.severidade === 'alta' && i.status === 'aberto').length;
-  const initials = user?.name?.split(' ').map((n: string) => n[0]).slice(0, 2).join('') ?? 'TR';
-  const hora = new Date().getHours();
-  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+  const nrStats = [
+    { nr: 'NR-35', pct: 92, color: C.success },
+    { nr: 'NR-18', pct: 78, color: C.info },
+    { nr: 'NR-12', pct: 85, color: C.success },
+    { nr: 'NR-33', pct: 65, color: C.warning },
+    { nr: 'NR-10', pct: 90, color: C.success },
+    { nr: 'NR-23', pct: 72, color: C.info },
+    { nr: 'NR-6', pct: 88, color: C.success },
+  ];
 
   return (
-    <View style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A1A" />
-      <View style={s.header}>
-        {isOffline && <View style={s.offline}><Text style={s.offlineTxt}>Modo offline</Text></View>}
-        <View style={s.headerRow}>
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {}} tintColor={C.primary} />}
+      >
+        <View style={s.header}>
           <View>
-            <Text style={s.saudacao}>{saudacao},</Text>
-            <Text style={s.name}>{user?.name ?? 'Inspetor'}</Text>
+            <Text style={s.greeting}>Olá, {user?.name?.split(' ')[0]} 👋</Text>
+            <Text style={s.sub}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
           </View>
-          <View style={s.avatar}><Text style={s.avatarTxt}>{initials}</Text></View>
+          <View style={[s.roleBadge, { backgroundColor: user?.role === 'admin' ? C.dangerBg : C.infoBg }]}>
+            <Text style={[s.roleText, { color: user?.role === 'admin' ? C.dangerDark : C.infoDark }]}>
+              {user?.role?.toUpperCase()}
+            </Text>
+          </View>
         </View>
-      </View>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await fetch(); setRefreshing(false); }} tintColor="#F5C800" />}>
-        <View style={s.grid}>
-          {[
-            { titulo: 'Checklists', count: `${pendentes} pendentes`, cor: '#F5C800', route: 'Checklists' },
-            { titulo: 'Incidentes', count: `${criticos} criticos`, cor: '#C62828', route: 'Incidents' },
-            { titulo: 'Nova Inspecao', count: 'NR-18, 35, 6, 12', cor: '#2E7D32', route: 'NewChecklist' },
-            { titulo: 'Relatorios', count: 'PDFs gerados', cor: '#1565C0', route: 'Reports' },
-          ].map(c => (
-            <TouchableOpacity key={c.titulo} style={[s.card, { borderLeftColor: c.cor, borderLeftWidth: 4 }]} onPress={() => navigation.navigate(c.route)}>
-              <Text style={s.cardTitle}>{c.titulo}</Text>
-              <Text style={[s.cardCount, { color: c.cor }]}>{c.count}</Text>
-            </TouchableOpacity>
-          ))}
+
+        <View style={s.conformBox}>
+          <View>
+            <Text style={s.conformLabel}>Conformidade Geral</Text>
+            <Text style={s.conformVal}>{conformidade}%</Text>
+          </View>
+          <View style={s.progressCircle}>
+            <Text style={s.progressNum}>{concluidos}/{total}</Text>
+            <Text style={s.progressSub}>concluídas</Text>
+          </View>
         </View>
-        <View style={s.statsRow}>
-          {[
-            { num: checklists.length, label: 'Inspecoes' },
-            { num: checklists.filter(c => c.status === 'concluido').length, label: 'Concluidas' },
-            { num: incidents.length, label: 'Ocorrencias' },
-          ].map(st => (
-            <View key={st.label} style={s.stat}>
-              <Text style={s.statNum}>{st.num}</Text>
-              <Text style={s.statLabel}>{st.label}</Text>
+
+        <View style={s.kpiGrid}>
+          <KPICard label="Total" value={total} color={C.infoDark} bg={C.infoBg} />
+          <KPICard label="Em Andamento" value={emAndamento} color={C.warningDark} bg={C.warningBg} />
+          <KPICard label="Concluídas" value={concluidos} color={C.successDark} bg={C.successBg} />
+          <KPICard label="Inc. Críticos" value={incCriticos} color={C.dangerDark} bg={C.dangerBg} />
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Conformidade por NR</Text>
+          {nrStats.map((n) => <NRBar key={n.nr} {...n} />)}
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Atividade Recente</Text>
+          {checklists.slice(0, 5).map((c: any) => (
+            <View key={c.id} style={s.actItem}>
+              <View style={[s.actDot, { backgroundColor: c.status === 'concluido' ? C.success : C.warning }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.actTitle} numberOfLines={1}>{c.titulo}</Text>
+                <Text style={s.actSub}>{c.norma} • {c.obra}</Text>
+              </View>
+              <View style={[s.statusBadge, { backgroundColor: c.status === 'concluido' ? C.successBg : C.warningBg }]}>
+                <Text style={[s.statusTxt, { color: c.status === 'concluido' ? C.successDark : C.warningDark }]}>
+                  {c.status === 'concluido' ? 'Concluído' : 'Em andamento'}
+                </Text>
+              </View>
             </View>
           ))}
+          {checklists.length === 0 && (
+            <Text style={s.empty}>Nenhuma inspeção registrada ainda.</Text>
+          )}
         </View>
-        <TouchableOpacity style={s.btnIncident} onPress={() => navigation.navigate('NewIncident')}>
-          <Text style={s.btnIncTxt}>Reportar Incidente</Text>
-        </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F8F6' },
-  header: { backgroundColor: '#1A1A1A', paddingTop: 52, paddingHorizontal: 24, paddingBottom: 24 },
-  offline: { backgroundColor: '#F57F17', borderRadius: 6, padding: 8, marginBottom: 12 },
-  offlineTxt: { fontSize: 12, color: '#FFF', textAlign: 'center' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  saudacao: { fontSize: 12, color: '#999990' },
-  name: { fontSize: 22, color: '#FFF', fontWeight: '700' },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F5C800', alignItems: 'center', justifyContent: 'center' },
-  avatarTxt: { fontSize: 14, fontWeight: '700', color: '#1A1A1A' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 },
-  card: { width: '47%', backgroundColor: '#FFF', borderRadius: 14, padding: 14, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
-  cardTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A1A' },
-  cardCount: { fontSize: 11, marginTop: 4 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  stat: { flex: 1, backgroundColor: '#1A1A1A', borderRadius: 14, padding: 12, alignItems: 'center' },
-  statNum: { fontSize: 22, fontWeight: '700', color: '#F5C800' },
-  statLabel: { fontSize: 10, color: '#999990', marginTop: 2, textAlign: 'center' },
-  btnIncident: { backgroundColor: '#FFEBEE', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#C6282840' },
-  btnIncTxt: { fontSize: 15, fontWeight: '700', color: '#C62828' },
+  safe: { flex: 1, backgroundColor: C.offWhite },
+  scroll: { padding: S.md, paddingBottom: S.xxl },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md },
+  greeting: { fontSize: F.xl, fontWeight: '700', color: C.textPrimary },
+  sub: { fontSize: F.sm, color: C.textSecondary, marginTop: 2 },
+  roleBadge: { borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: S.xs },
+  roleText: { fontSize: F.xs, fontWeight: '700' },
+  conformBox: {
+    backgroundColor: C.black, borderRadius: R.xl, padding: S.lg,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md, ...Sh.md,
+  },
+  conformLabel: { color: C.textMuted, fontSize: F.sm },
+  conformVal: { color: C.primary, fontSize: 40, fontWeight: '800' },
+  progressCircle: { alignItems: 'center' },
+  progressNum: { color: C.white, fontSize: F.xxl, fontWeight: '700' },
+  progressSub: { color: C.textMuted, fontSize: F.xs },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm, marginBottom: S.md },
+  kpi: { flex: 1, minWidth: '45%', borderRadius: R.lg, padding: S.md, ...Sh.sm },
+  kpiVal: { fontSize: F.xxl, fontWeight: '800' },
+  kpiLabel: { fontSize: F.xs, color: C.textSecondary, marginTop: 2 },
+  section: { backgroundColor: C.card, borderRadius: R.xl, padding: S.md, marginBottom: S.md, ...Sh.sm },
+  sectionTitle: { fontSize: F.md, fontWeight: '700', color: C.textPrimary, marginBottom: S.md },
+  nrRow: { flexDirection: 'row', alignItems: 'center', marginBottom: S.sm },
+  nrLabel: { width: 44, fontSize: F.xs, fontWeight: '600', color: C.textSecondary },
+  barBg: { flex: 1, height: 8, backgroundColor: C.border, borderRadius: R.full, overflow: 'hidden' },
+  barFill: { height: 8, borderRadius: R.full },
+  nrPct: { width: 36, textAlign: 'right', fontSize: F.xs, fontWeight: '600', color: C.textSecondary },
+  actItem: { flexDirection: 'row', alignItems: 'center', gap: S.sm, marginBottom: S.sm },
+  actDot: { width: 10, height: 10, borderRadius: R.full },
+  actTitle: { fontSize: F.sm, fontWeight: '600', color: C.textPrimary },
+  actSub: { fontSize: F.xs, color: C.textSecondary },
+  statusBadge: { borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: 2 },
+  statusTxt: { fontSize: F.xs, fontWeight: '600' },
+  empty: { color: C.textMuted, textAlign: 'center', padding: S.md },
 });

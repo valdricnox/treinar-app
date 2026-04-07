@@ -1,24 +1,39 @@
 {
   "expo": {
     "name": "Treinar Engenharia",
-    "slug": "treinar-engenharia",
-    "version": "2.0.0",
+    "slug": "treinar-app",
+    "version": "3.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
-    "splash": { "backgroundColor": "#F5C800", "resizeMode": "contain" },
-    "scheme": "treinar",
-    "ios": { "supportsTablet": false, "bundleIdentifier": "br.eng.treinar.app" },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1A1A1A"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.eng.treinar.app"
+    },
     "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1A1A1A"
+      },
       "package": "br.eng.treinar.app",
-      "versionCode": 2,
-      "adaptiveIcon": { "backgroundColor": "#F5C800" },
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ]
-    }
+    },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "Permitir acesso à câmera para fotos de inspeção." }],
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Permitir acesso à localização para registrar o local da inspeção." }],
+      ["expo-image-picker", { "photosPermission": "Permitir acesso à galeria para adicionar fotos às inspeções." }]
+    ]
   }
 }

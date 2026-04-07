@@ -1,109 +1,102 @@
-import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, Alert, Share } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
-import { checklistApi } from '../services/api';
+import api from '../services/api';
 import { C, S, R, F, Sh } from '../theme';
 
-export default function ReportsScreen({ navigation }: any) {
-  const checklists = useSelector((s: RootState) => s.checklists.items);
-  const concluidos = checklists.filter(c => c.status === 'concluido');
+export default function ReportsScreen() {
+  const checklists = useSelector((s: RootState) => s.checklists.list);
+  const concluidos = checklists.filter((c: any) => c.status === 'concluido');
+  const [loadingId, setLoadingId] = useState<number | null>(null);
 
-  const handlePdf = async (id: string, titulo: string) => {
+  const gerarPDF = async (item: any) => {
+    setLoadingId(item.id);
     try {
-      await checklistApi.gerarPdf(id);
-      Alert.alert('✅ PDF gerado!', `Relatório de "${titulo}" pronto.`, [
-        { text: 'Compartilhar', onPress: () => Share.share({ message: `Relatório: ${titulo} — Treinar Engenharia` }) },
-        { text: 'OK' },
-      ]);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível gerar o PDF. Verifique a conexão.');
+      const res = await api.post(`/checklists/${item.id}/pdf`);
+      Alert.alert('PDF Gerado', 'Relatório gerado com sucesso!\n\nURL: ' + (res.data?.pdf_url || 'Disponível no servidor'));
+    } catch (err: any) {
+      Alert.alert('Erro', 'Não foi possível gerar o PDF. Verifique sua conexão com o servidor.');
+    } finally {
+      setLoadingId(null);
     }
   };
 
   return (
-    <View style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={C.black} />
+    <SafeAreaView style={s.safe} edges={['top']}>
       <View style={s.header}>
         <Text style={s.title}>Relatórios</Text>
-        <Text style={s.sub}>{concluidos.length} inspeção{concluidos.length !== 1 ? 'ões' : ''} concluída{concluidos.length !== 1 ? 's' : ''}</Text>
-      </View>
-
-      <View style={s.infoCard}>
-        <Text style={{fontSize:22}}>📄</Text>
-        <View style={{flex:1}}>
-          <Text style={s.infoTitle}>PDFs com marca Treinar Engenharia</Text>
-          <Text style={s.infoSub}>Gerados automaticamente ao concluir inspeções. Inclui itens, observações e data.</Text>
+        <View style={s.badge}>
+          <Text style={s.badgeTxt}>{concluidos.length} concluídas</Text>
         </View>
       </View>
 
       <FlatList
         data={concluidos}
-        keyExtractor={i => i.id}
-        contentContainerStyle={{padding:S.lg, paddingBottom:100}}
-        ItemSeparatorComponent={() => <View style={{height:S.md}} />}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={s.list}
+        ListEmptyComponent={
+          <View style={s.emptyBox}>
+            <Text style={s.emptyIcon}>📋</Text>
+            <Text style={s.emptyTxt}>Nenhuma inspeção concluída ainda.</Text>
+            <Text style={s.emptySub}>Complete uma inspeção para gerar relatórios.</Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <View style={s.card}>
             <View style={s.cardTop}>
-              <View style={s.normaBadge}><Text style={s.normaBadgeText}>{item.norma}</Text></View>
-              <View style={s.concluidoBadge}><Text style={s.concluidoText}>✅ Concluído</Text></View>
+              <View style={s.nrBadge}><Text style={s.nrTxt}>{item.norma}</Text></View>
+              <Text style={s.cardDate}>{new Date(item.data_conclusao || item.data_criacao).toLocaleDateString('pt-BR')}</Text>
             </View>
-            <Text style={s.cardTitle}>{item.titulo}</Text>
-            <Text style={s.cardMeta}>🏗 {item.obra}</Text>
-            <Text style={s.cardMeta}>👤 {item.responsavel}</Text>
-            <Text style={s.cardDate}>{new Date(item.dataCriacao).toLocaleDateString('pt-BR')}</Text>
-            <View style={s.cardStats}>
-              <Text style={s.statText}>📋 {item.itens.length} itens</Text>
-              <Text style={s.statText}>✓ {item.itens.filter(i=>i.checked).length} conformes</Text>
-              <Text style={s.statText}>💬 {item.itens.filter(i=>i.nota).length} observações</Text>
-            </View>
-            <View style={s.actions}>
-              <TouchableOpacity style={s.btnPdf} onPress={() => handlePdf(item.id, item.titulo)}>
-                <Text style={s.btnPdfText}>📄 Gerar PDF</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.btnShare} onPress={() => Share.share({message:`Inspeção ${item.norma}: ${item.titulo} — Treinar Engenharia`})}>
-                <Text style={s.btnShareText}>↗ Compartilhar</Text>
+            <Text style={s.cardTitle} numberOfLines={2}>{item.titulo}</Text>
+            <Text style={s.cardSub}>📍 {item.obra} • 👤 {item.responsavel}</Text>
+            <View style={s.cardFooter}>
+              <View style={s.progRow}>
+                <View style={s.progBg}><View style={[s.progFill, { width: `${item.progresso || 100}%` }]} /></View>
+                <Text style={s.progTxt}>{item.progresso || 100}%</Text>
+              </View>
+              <TouchableOpacity
+                style={[s.pdfBtn, loadingId === item.id && { opacity: 0.7 }]}
+                onPress={() => gerarPDF(item)}
+                disabled={loadingId === item.id}
+              >
+                {loadingId === item.id
+                  ? <ActivityIndicator color={C.black} size="small" />
+                  : <Text style={s.pdfBtnTxt}>📄 PDF</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>
         )}
-        ListEmptyComponent={
-          <View style={{alignItems:'center',padding:48,gap:12}}>
-            <Text style={{fontSize:52}}>📋</Text>
-            <Text style={{fontSize:18,fontWeight:'700',color:C.textPrimary}}>Nenhum relatório</Text>
-            <Text style={{fontSize:14,color:C.textMuted,textAlign:'center'}}>Conclua uma inspeção para gerar o primeiro relatório PDF</Text>
-            <TouchableOpacity style={{backgroundColor:C.yellow,borderRadius:R.full,paddingHorizontal:24,paddingVertical:10,marginTop:8}} onPress={() => navigation.navigate('NewChecklist')}>
-              <Text style={{fontSize:14,fontWeight:'700',color:C.black}}>+ Criar Inspeção</Text>
-            </TouchableOpacity>
-          </View>
-        }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container:{flex:1,backgroundColor:C.offWhite},
-  header:{backgroundColor:C.black,paddingTop:52,paddingHorizontal:S.xl,paddingBottom:S.xl},
-  title:{fontSize:F.xxl,color:'#fff',fontWeight:'700'},
-  sub:{fontSize:F.sm,color:C.textMuted,marginTop:4},
-  infoCard:{flexDirection:'row',alignItems:'flex-start',gap:S.md,backgroundColor:C.infoLight,margin:S.lg,borderRadius:R.lg,padding:S.md,borderWidth:1,borderColor:C.info+'30'},
-  infoTitle:{fontSize:F.sm,fontWeight:'700',color:C.info},
-  infoSub:{fontSize:F.xs,color:C.textSecondary,marginTop:2,lineHeight:16},
-  card:{backgroundColor:C.white,borderRadius:R.lg,padding:S.lg,...Sh.sm},
-  cardTop:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:S.sm},
-  normaBadge:{backgroundColor:C.black,borderRadius:R.full,paddingHorizontal:S.md,paddingVertical:3},
-  normaBadgeText:{fontSize:F.xs,color:C.yellow,fontWeight:'700'},
-  concluidoBadge:{backgroundColor:C.successLight,borderRadius:R.full,paddingHorizontal:S.md,paddingVertical:3},
-  concluidoText:{fontSize:F.xs,color:C.success,fontWeight:'700'},
-  cardTitle:{fontSize:F.base,fontWeight:'700',color:C.textPrimary,marginBottom:4},
-  cardMeta:{fontSize:F.sm,color:C.textSecondary,marginBottom:2},
-  cardDate:{fontSize:F.xs,color:C.textMuted,marginBottom:S.sm},
-  cardStats:{flexDirection:'row',gap:S.lg,marginBottom:S.md,padding:S.sm,backgroundColor:C.surfaceAlt,borderRadius:R.sm},
-  statText:{fontSize:F.xs,color:C.textSecondary},
-  actions:{flexDirection:'row',gap:S.md},
-  btnPdf:{flex:1,backgroundColor:C.yellow,borderRadius:R.full,padding:S.sm,alignItems:'center'},
-  btnPdfText:{fontSize:F.sm,fontWeight:'700',color:C.black},
-  btnShare:{flex:1,backgroundColor:C.surfaceAlt,borderRadius:R.full,padding:S.sm,alignItems:'center',borderWidth:1,borderColor:C.border},
-  btnShareText:{fontSize:F.sm,fontWeight:'700',color:C.textSecondary},
+  safe: { flex: 1, backgroundColor: C.offWhite },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.md },
+  title: { fontSize: F.xxl, fontWeight: '800', color: C.textPrimary },
+  badge: { backgroundColor: C.successBg, borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: S.xs },
+  badgeTxt: { fontSize: F.xs, fontWeight: '600', color: C.successDark },
+  list: { padding: S.md, gap: S.sm, paddingBottom: S.xxl },
+  emptyBox: { alignItems: 'center', marginTop: S.xxl, padding: S.xl },
+  emptyIcon: { fontSize: 48, marginBottom: S.md },
+  emptyTxt: { fontSize: F.lg, fontWeight: '700', color: C.textPrimary },
+  emptySub: { fontSize: F.sm, color: C.textSecondary, textAlign: 'center', marginTop: S.xs },
+  card: { backgroundColor: C.card, borderRadius: R.xl, padding: S.md, ...Sh.sm },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.sm },
+  nrBadge: { backgroundColor: C.black, borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: 2 },
+  nrTxt: { color: C.primary, fontSize: F.xs, fontWeight: '700' },
+  cardDate: { fontSize: F.xs, color: C.textMuted },
+  cardTitle: { fontSize: F.md, fontWeight: '700', color: C.textPrimary, marginBottom: S.xs },
+  cardSub: { fontSize: F.xs, color: C.textSecondary, marginBottom: S.sm },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  progRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  progBg: { flex: 1, height: 6, backgroundColor: C.border, borderRadius: R.full, overflow: 'hidden' },
+  progFill: { height: 6, backgroundColor: C.success, borderRadius: R.full },
+  progTxt: { fontSize: F.xs, fontWeight: '700', color: C.successDark },
+  pdfBtn: { backgroundColor: C.primary, borderRadius: R.md, paddingHorizontal: S.md, paddingVertical: S.sm, ...Sh.sm },
+  pdfBtnTxt: { fontWeight: '700', fontSize: F.sm, color: C.black },
 });

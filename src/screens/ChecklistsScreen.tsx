@@ -1,135 +1,142 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, TextInput, RefreshControl } from 'react-native';
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  TextInput, RefreshControl, ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, setChecklists } from '../store';
-import { checklistApi } from '../services/api';
+import api from '../services/api';
 import { C, S, R, F, Sh } from '../theme';
 
-const STATUS_CONFIG: Record<string,{label:string;bg:string;text:string}> = {
-  pendente:     { label:'Pendente',     bg:'#F0F0EE', text:'#666' },
-  em_andamento: { label:'Em andamento', bg:'#FFF9E0', text:'#92400E' },
-  concluido:    { label:'Concluído',    bg:'#E6F4EA', text:'#22863A' },
+const NRS = ['Todas', 'NR-6', 'NR-10', 'NR-12', 'NR-18', 'NR-23', 'NR-33', 'NR-35'];
+const STATUS = ['Todos', 'em_andamento', 'concluido', 'pendente'];
+const STATUS_LABEL: any = { em_andamento: 'Em Andamento', concluido: 'Concluído', pendente: 'Pendente' };
+const STATUS_COLOR: any = {
+  em_andamento: { bg: C.warningBg, text: C.warningDark },
+  concluido: { bg: C.successBg, text: C.successDark },
+  pendente: { bg: C.infoBg, text: C.infoDark },
 };
 
 export default function ChecklistsScreen({ navigation }: any) {
   const dispatch = useDispatch();
-  const items = useSelector((s: RootState) => s.checklists.items);
+  const checklists = useSelector((s: RootState) => s.checklists.list);
   const [search, setSearch] = useState('');
-  const [filtroStatus, setFiltroStatus] = useState('todos');
-  const [filtroNorma, setFiltroNorma] = useState('Todas');
+  const [nrFilter, setNrFilter] = useState('Todas');
+  const [statusFilter, setStatusFilter] = useState('Todos');
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetch = async () => {
-    try { const r = await checklistApi.listar(); dispatch(setChecklists(r.data)); } catch {}
+  const load = async () => {
+    try {
+      setRefreshing(true);
+      const res = await api.get('/checklists');
+      dispatch(setChecklists(res.data?.checklists || res.data || []));
+    } catch {}
+    finally { setRefreshing(false); }
   };
-  useEffect(() => { fetch(); }, []);
 
-  const filtered = items.filter(c => {
-    const ms = !search || c.titulo.toLowerCase().includes(search.toLowerCase()) || c.obra.toLowerCase().includes(search.toLowerCase());
-    const mst = filtroStatus === 'todos' || c.status === filtroStatus;
-    const mn = filtroNorma === 'Todas' || c.norma === filtroNorma;
-    return ms && mst && mn;
+  useEffect(() => { load(); }, []);
+
+  const filtered = checklists.filter((c: any) => {
+    const matchNr = nrFilter === 'Todas' || c.norma === nrFilter;
+    const matchStatus = statusFilter === 'Todos' || c.status === statusFilter;
+    const matchSearch = !search || c.titulo?.toLowerCase().includes(search.toLowerCase()) || c.obra?.toLowerCase().includes(search.toLowerCase());
+    return matchNr && matchStatus && matchSearch;
   });
 
   return (
-    <View style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={C.black} />
+    <SafeAreaView style={s.safe} edges={['top']}>
       <View style={s.header}>
         <Text style={s.title}>Checklists</Text>
-        <TouchableOpacity style={s.btnNew} onPress={() => navigation.navigate('NewChecklist')}>
-          <Text style={s.btnNewText}>+ Nova</Text>
+        <TouchableOpacity style={s.newBtn} onPress={() => navigation.navigate('NewChecklist')}>
+          <Text style={s.newBtnTxt}>+ Nova</Text>
         </TouchableOpacity>
       </View>
-      <View style={s.searchWrap}>
-        <Text style={{fontSize:16}}>🔍</Text>
-        <TextInput style={s.searchInput} value={search} onChangeText={setSearch} placeholder="Buscar inspeções..." placeholderTextColor={C.textMuted} />
-        {search.length > 0 && <TouchableOpacity onPress={() => setSearch('')}><Text style={{color:C.textMuted,fontSize:18}}>✕</Text></TouchableOpacity>}
-      </View>
+
+      <TextInput
+        style={s.search}
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Buscar por título ou obra..."
+        placeholderTextColor={C.textMuted}
+      />
+
       <View style={s.filterRow}>
-        {['Todas','NR-18','NR-35','NR-6','NR-12'].map(n => (
-          <TouchableOpacity key={n} style={[s.chip, filtroNorma===n && s.chipActive]} onPress={() => setFiltroNorma(n)}>
-            <Text style={[s.chipText, filtroNorma===n && s.chipTextActive]}>{n}</Text>
+        {NRS.map((n) => (
+          <TouchableOpacity
+            key={n}
+            style={[s.chip, nrFilter === n && s.chipActive]}
+            onPress={() => setNrFilter(n)}
+          >
+            <Text style={[s.chipTxt, nrFilter === n && s.chipActiveTxt]}>{n}</Text>
           </TouchableOpacity>
         ))}
       </View>
-      <View style={s.statusRow}>
-        {[['todos','Todos'],['pendente','Pendentes'],['em_andamento','Andamento'],['concluido','Concluídos']].map(([k,l]) => (
-          <TouchableOpacity key={k} style={[s.statusChip, filtroStatus===k && s.statusChipActive]} onPress={() => setFiltroStatus(k)}>
-            <Text style={[s.statusChipText, filtroStatus===k && s.statusChipTextActive]}>{l}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+
       <FlatList
         data={filtered}
-        keyExtractor={i => i.id}
-        contentContainerStyle={{ padding:S.lg, paddingBottom:100 }}
-        ItemSeparatorComponent={() => <View style={{height:S.md}} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async()=>{setRefreshing(true);await fetch();setRefreshing(false);}} tintColor={C.yellow} />}
+        keyExtractor={(item) => String(item.id)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={C.primary} />}
+        contentContainerStyle={s.list}
+        ListEmptyComponent={<Text style={s.empty}>Nenhuma inspeção encontrada.</Text>}
         renderItem={({ item }) => {
-          const st = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pendente;
+          const sc = STATUS_COLOR[item.status] || STATUS_COLOR.pendente;
           return (
-            <TouchableOpacity style={s.card} onPress={() => navigation.navigate('ChecklistDetail', {id:item.id})} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={s.card}
+              onPress={() => navigation.navigate('ChecklistDetail', { checklist: item })}
+            >
               <View style={s.cardTop}>
-                <View style={s.normaBadge}><Text style={s.normaBadgeText}>{item.norma}</Text></View>
-                <View style={[s.statusBadge, {backgroundColor:st.bg}]}><Text style={[s.statusText, {color:st.text}]}>{st.label}</Text></View>
+                <View style={s.nrBadge}>
+                  <Text style={s.nrTxt}>{item.norma}</Text>
+                </View>
+                <View style={[s.statusBadge, { backgroundColor: sc.bg }]}>
+                  <Text style={[s.statusTxt, { color: sc.text }]}>{STATUS_LABEL[item.status] || item.status}</Text>
+                </View>
               </View>
               <Text style={s.cardTitle} numberOfLines={2}>{item.titulo}</Text>
-              <Text style={s.cardMeta}>🏗 {item.obra}  👤 {item.responsavel}</Text>
+              <Text style={s.cardSub}>📍 {item.obra} • 👤 {item.responsavel}</Text>
               <View style={s.progressRow}>
-                <View style={s.progressBar}><View style={[s.progressFill, {width:`${item.progresso}%` as any}]} /></View>
-                <Text style={s.progressText}>{item.progresso}%</Text>
+                <View style={s.progBg}>
+                  <View style={[s.progFill, { width: `${item.progresso || 0}%` }]} />
+                </View>
+                <Text style={s.progTxt}>{item.progresso || 0}%</Text>
               </View>
-              <Text style={s.cardDate}>{new Date(item.dataCriacao).toLocaleDateString('pt-BR')}</Text>
             </TouchableOpacity>
           );
         }}
-        ListEmptyComponent={
-          <View style={s.empty}>
-            <Text style={{fontSize:52}}>📋</Text>
-            <Text style={s.emptyTitle}>Nenhuma inspeção</Text>
-            <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('NewChecklist')}>
-              <Text style={s.emptyBtnText}>+ Criar Inspeção</Text>
-            </TouchableOpacity>
-          </View>
-        }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container:{flex:1,backgroundColor:C.offWhite},
-  header:{backgroundColor:C.black,paddingTop:52,paddingHorizontal:S.xl,paddingBottom:S.lg,flexDirection:'row',justifyContent:'space-between',alignItems:'flex-end'},
-  title:{fontSize:F.xxl,color:'#fff',fontWeight:'700'},
-  btnNew:{backgroundColor:C.yellow,borderRadius:R.full,paddingHorizontal:S.lg,paddingVertical:S.sm},
-  btnNewText:{fontSize:F.sm,fontWeight:'700',color:C.black},
-  searchWrap:{flexDirection:'row',alignItems:'center',margin:S.lg,backgroundColor:C.white,borderRadius:R.lg,paddingHorizontal:S.md,borderWidth:1,borderColor:C.border,gap:S.sm},
-  searchInput:{flex:1,paddingVertical:S.md,fontSize:F.md,color:C.textPrimary},
-  filterRow:{flexDirection:'row',gap:S.sm,paddingHorizontal:S.lg,marginBottom:S.sm,flexWrap:'wrap'},
-  chip:{borderRadius:R.full,paddingHorizontal:S.md,paddingVertical:5,borderWidth:1,borderColor:C.border,backgroundColor:C.white},
-  chipActive:{backgroundColor:C.black,borderColor:C.black},
-  chipText:{fontSize:F.xs,color:C.textSecondary},
-  chipTextActive:{color:C.yellow,fontWeight:'700'},
-  statusRow:{flexDirection:'row',gap:6,paddingHorizontal:S.lg,marginBottom:S.md,flexWrap:'wrap'},
-  statusChip:{borderRadius:R.full,paddingHorizontal:S.sm,paddingVertical:4,backgroundColor:C.surfaceAlt},
-  statusChipActive:{backgroundColor:C.black},
-  statusChipText:{fontSize:10,color:C.textMuted},
-  statusChipTextActive:{color:C.yellow,fontWeight:'700'},
-  card:{backgroundColor:C.white,borderRadius:R.lg,padding:S.lg,...Sh.sm},
-  cardTop:{flexDirection:'row',justifyContent:'space-between',marginBottom:S.sm},
-  normaBadge:{backgroundColor:C.black,borderRadius:R.full,paddingHorizontal:S.md,paddingVertical:3},
-  normaBadgeText:{fontSize:F.xs,color:C.yellow,fontWeight:'700'},
-  statusBadge:{borderRadius:R.full,paddingHorizontal:S.md,paddingVertical:3},
-  statusText:{fontSize:F.xs,fontWeight:'700'},
-  cardTitle:{fontSize:F.base,fontWeight:'700',color:C.textPrimary,marginBottom:4},
-  cardMeta:{fontSize:F.sm,color:C.textSecondary,marginBottom:S.md},
-  progressRow:{flexDirection:'row',alignItems:'center',gap:S.sm,marginBottom:S.sm},
-  progressBar:{flex:1,height:6,backgroundColor:C.surfaceAlt,borderRadius:3,overflow:'hidden'},
-  progressFill:{height:6,backgroundColor:C.yellow,borderRadius:3},
-  progressText:{fontSize:F.xs,fontWeight:'700',color:C.textSecondary,minWidth:32,textAlign:'right'},
-  cardDate:{fontSize:F.xs,color:C.textMuted},
-  empty:{alignItems:'center',padding:S.xxxl,gap:S.md},
-  emptyTitle:{fontSize:F.xl,fontWeight:'700',color:C.textPrimary},
-  emptyBtn:{backgroundColor:C.yellow,borderRadius:R.full,paddingHorizontal:S.xl,paddingVertical:S.md},
-  emptyBtnText:{fontSize:F.sm,fontWeight:'700',color:C.black},
+  safe: { flex: 1, backgroundColor: C.offWhite },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.md, paddingBottom: S.sm },
+  title: { fontSize: F.xxl, fontWeight: '800', color: C.textPrimary },
+  newBtn: { backgroundColor: C.primary, borderRadius: R.md, paddingHorizontal: S.md, paddingVertical: S.sm },
+  newBtnTxt: { fontWeight: '700', fontSize: F.sm, color: C.black },
+  search: {
+    marginHorizontal: S.md, marginBottom: S.sm, borderWidth: 1, borderColor: C.border,
+    borderRadius: R.lg, padding: S.sm + 4, fontSize: F.sm, color: C.textPrimary, backgroundColor: C.white,
+  },
+  filterRow: { flexDirection: 'row', paddingHorizontal: S.md, gap: S.xs, marginBottom: S.sm, flexWrap: 'wrap' },
+  chip: { paddingHorizontal: S.sm, paddingVertical: S.xs, borderRadius: R.full, borderWidth: 1, borderColor: C.border, backgroundColor: C.white },
+  chipActive: { backgroundColor: C.black, borderColor: C.black },
+  chipTxt: { fontSize: F.xs, color: C.textSecondary, fontWeight: '600' },
+  chipActiveTxt: { color: C.primary },
+  list: { padding: S.md, gap: S.sm, paddingBottom: S.xxl },
+  empty: { textAlign: 'center', color: C.textMuted, marginTop: S.xxl },
+  card: { backgroundColor: C.card, borderRadius: R.xl, padding: S.md, ...Sh.sm },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: S.sm },
+  nrBadge: { backgroundColor: C.black, borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: 2 },
+  nrTxt: { color: C.primary, fontSize: F.xs, fontWeight: '700' },
+  statusBadge: { borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: 2 },
+  statusTxt: { fontSize: F.xs, fontWeight: '600' },
+  cardTitle: { fontSize: F.md, fontWeight: '700', color: C.textPrimary, marginBottom: S.xs },
+  cardSub: { fontSize: F.xs, color: C.textSecondary, marginBottom: S.sm },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  progBg: { flex: 1, height: 6, backgroundColor: C.border, borderRadius: R.full, overflow: 'hidden' },
+  progFill: { height: 6, backgroundColor: C.primary, borderRadius: R.full },
+  progTxt: { fontSize: F.xs, fontWeight: '700', color: C.textSecondary, width: 32, textAlign: 'right' },
 });

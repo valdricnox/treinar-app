@@ -1,165 +1,219 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, StatusBar, TextInput, Modal } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState, toggleItem, setItemNota } from '../store';
-import { checklistApi } from '../services/api';
+import React, { useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Alert, ActivityIndicator, Image,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import { useDispatch } from 'react-redux';
+import { updateChecklist } from '../store';
+import api from '../services/api';
 import { C, S, R, F, Sh } from '../theme';
 
 export default function ChecklistDetailScreen({ route, navigation }: any) {
-  const { id } = route.params;
+  const { checklist } = route.params;
   const dispatch = useDispatch();
-  const checklist = useSelector((s: RootState) => s.checklists.items.find(c => c.id === id));
-  const [loading, setLoading] = useState(false);
-  const [notaModal, setNotaModal] = useState<{open:boolean;itemId:string;value:string}>({open:false,itemId:'',value:''});
+  const [itens, setItens] = useState<any[]>(checklist.itens || []);
+  const [obs, setObs] = useState(checklist.observacoes || '');
+  const [assinatura, setAssinatura] = useState(checklist.assinatura || '');
+  const [fotos, setFotos] = useState<string[]>(checklist.fotos || []);
+  const [location, setLocation] = useState<any>(checklist.geolocation || null);
+  const [saving, setSaving] = useState(false);
+  const [concluding, setConcluding] = useState(false);
 
-  const handleToggle = useCallback((itemId: string) => {
-    dispatch(toggleItem({ checklistId: id, itemId }));
-  }, [id]);
-
-  const saveNota = () => {
-    dispatch(setItemNota({ checklistId: id, itemId: notaModal.itemId, nota: notaModal.value }));
-    setNotaModal({ open: false, itemId: '', value: '' });
+  const toggleItem = (idx: number) => {
+    const novo = [...itens];
+    novo[idx] = { ...novo[idx], conforme: !novo[idx].conforme };
+    setItens(novo);
   };
 
-  const handleConcluir = async () => {
-    if (!checklist) return;
-    const faltando = checklist.itens.filter(i => i.obrigatorio && !i.checked).length;
-    if (faltando > 0) {
-      Alert.alert('Itens obrigatórios', `Complete os ${faltando} itens obrigatórios antes de concluir.`);
-      return;
-    }
-    Alert.alert('Concluir inspeção?', 'Gera relatório PDF automaticamente.', [
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permissão', 'Câmera não permitida.'); return; }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: false });
+    if (!result.canceled && result.assets[0]) setFotos([...fotos, result.assets[0].uri]);
+  };
+
+  const pickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsMultipleSelection: false });
+    if (!result.canceled && result.assets[0]) setFotos([...fotos, result.assets[0].uri]);
+  };
+
+  const getGPS = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permissão', 'Localização não permitida.'); return; }
+    const loc = await Location.getCurrentPositionAsync({});
+    setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    Alert.alert('GPS', `Localização capturada:\n${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
+  };
+
+  const progresso = itens.length > 0 ? Math.round((itens.filter((i) => i.conforme).length / itens.length) * 100) : 0;
+
+  const salvar = async () => {
+    setSaving(true);
+    try {
+      const res = await api.put(`/checklists/${checklist.id}`, { itens, observacoes: obs, assinatura, geolocation: location, progresso });
+      dispatch(updateChecklist(res.data?.checklist || { ...checklist, itens, progresso }));
+      Alert.alert('Salvo', 'Checklist atualizado com sucesso!');
+    } catch { Alert.alert('Erro', 'Não foi possível salvar. Tente novamente.'); }
+    finally { setSaving(false); }
+  };
+
+  const concluir = async () => {
+    if (!assinatura.trim()) { Alert.alert('Atenção', 'Informe o nome do responsável para concluir.'); return; }
+    Alert.alert('Concluir Inspeção', 'Tem certeza que deseja concluir esta inspeção?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Concluir', onPress: async () => {
-        setLoading(true);
-        try {
-          await checklistApi.concluir(id, { itens: checklist.itens });
-          Alert.alert('✅ Inspeção concluída!', 'Disponível em Relatórios.');
-          navigation.goBack();
-        } catch { Alert.alert('Erro', 'Verifique a conexão.'); }
-        finally { setLoading(false); }
-      }},
+      {
+        text: 'Concluir', style: 'default', onPress: async () => {
+          setConcluding(true);
+          try {
+            await api.post(`/checklists/${checklist.id}/concluir`, { assinatura, geolocation: location });
+            dispatch(updateChecklist({ ...checklist, status: 'concluido', progresso: 100 }));
+            Alert.alert('Concluído!', 'Inspeção finalizada com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+          } catch { Alert.alert('Erro', 'Não foi possível concluir.'); }
+          finally { setConcluding(false); }
+        },
+      },
     ]);
   };
 
-  if (!checklist) return (
-    <View style={{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:C.offWhite}}>
-      <Text style={{color:C.textMuted,marginBottom:16}}>Inspeção não encontrada.</Text>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={{backgroundColor:C.yellow,borderRadius:R.full,paddingHorizontal:24,paddingVertical:10}}>
-        <Text style={{fontWeight:'700',color:C.black}}>← Voltar</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const done = checklist.itens.filter(i => i.checked).length;
-  const faltando = checklist.itens.filter(i => i.obrigatorio && !i.checked).length;
-
   return (
-    <View style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={C.black} />
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>← Voltar</Text></TouchableOpacity>
-        <View style={s.normaBadge}><Text style={s.normaBadgeText}>{checklist.norma}</Text></View>
-        <Text style={s.headerTitle} numberOfLines={2}>{checklist.titulo}</Text>
-        <Text style={s.headerSub}>🏗 {checklist.obra}  👤 {checklist.responsavel}</Text>
-        <View style={s.progressWrap}>
-          <View style={s.progressBar}>
-            <View style={[s.progressFill, {width:`${checklist.progresso}%` as any, backgroundColor:checklist.progresso===100?C.success:C.yellow}]} />
+    <SafeAreaView style={s.safe} edges={['bottom']}>
+      <ScrollView contentContainerStyle={s.scroll}>
+        <View style={s.titleBox}>
+          <Text style={s.title}>{checklist.titulo}</Text>
+          <View style={s.metaRow}>
+            <View style={s.nrBadge}><Text style={s.nrTxt}>{checklist.norma}</Text></View>
+            <Text style={s.meta}>📍 {checklist.obra}</Text>
           </View>
-          <Text style={s.progressText}>{done}/{checklist.itens.length} itens · {checklist.progresso}%</Text>
-          {faltando > 0 && <Text style={s.faltandoText}>{faltando} obrigatório(s) pendente(s)</Text>}
         </View>
-      </View>
 
-      <ScrollView contentContainerStyle={{padding:S.lg, paddingBottom:120}}>
-        {checklist.itens.map(item => (
-          <View key={item.id} style={[s.item, item.checked && s.itemDone]}>
-            <View style={s.itemRow}>
-              <TouchableOpacity style={[s.checkbox, item.checked && s.checkboxDone]} onPress={() => handleToggle(item.id)}>
-                {item.checked && <Text style={s.checkmark}>✓</Text>}
-              </TouchableOpacity>
-              <View style={{flex:1}}>
-                <Text style={[s.itemLabel, item.checked && s.itemLabelDone]}>{item.label}</Text>
-                <View style={{flexDirection:'row',gap:4,marginTop:4,flexWrap:'wrap'}}>
-                  {item.obrigatorio && <View style={s.obrigTag}><Text style={s.obrigTagText}>Obrigatório</Text></View>}
-                  {item.tipo==='foto' && <View style={s.fotoTag}><Text style={s.fotoTagText}>📷 Foto</Text></View>}
-                </View>
+        <View style={s.progBox}>
+          <Text style={s.progLabel}>Progresso</Text>
+          <Text style={s.progVal}>{progresso}%</Text>
+          <View style={s.progBg}>
+            <View style={[s.progFill, { width: `${progresso}%` }]} />
+          </View>
+          <Text style={s.progSub}>{itens.filter((i) => i.conforme).length} de {itens.length} itens conformes</Text>
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Itens de Verificação</Text>
+          {itens.map((item: any, idx: number) => (
+            <TouchableOpacity key={idx} style={s.itemRow} onPress={() => toggleItem(idx)}>
+              <View style={[s.checkbox, item.conforme && s.checkboxActive]}>
+                {item.conforme && <Text style={s.checkmark}>✓</Text>}
               </View>
-              <TouchableOpacity onPress={() => setNotaModal({open:true,itemId:item.id,value:item.nota||''})} style={{padding:4}}>
-                <Text style={{fontSize:18}}>{item.nota ? '💬' : '💭'}</Text>
-              </TouchableOpacity>
-            </View>
-            {item.nota ? <Text style={s.notaText}>"{item.nota}"</Text> : null}
+              <Text style={[s.itemTxt, item.conforme && s.itemTxtDone]}>{item.texto || item.descricao}</Text>
+            </TouchableOpacity>
+          ))}
+          {itens.length === 0 && <Text style={s.empty}>Nenhum item neste checklist.</Text>}
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Observações</Text>
+          <TextInput
+            style={s.textArea}
+            value={obs}
+            onChangeText={setObs}
+            placeholder="Descreva observações relevantes..."
+            placeholderTextColor={C.textMuted}
+            multiline
+            numberOfLines={4}
+          />
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Fotos</Text>
+          <View style={s.photoRow}>
+            <TouchableOpacity style={s.photoBtn} onPress={takePhoto}>
+              <Text style={s.photoBtnTxt}>📷 Câmera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.photoBtn} onPress={pickPhoto}>
+              <Text style={s.photoBtnTxt}>🖼 Galeria</Text>
+            </TouchableOpacity>
           </View>
-        ))}
-      </ScrollView>
-
-      <View style={s.footer}>
-        {checklist.status !== 'concluido' ? (
-          <TouchableOpacity style={[s.btnConcluir, faltando>0 && s.btnDisabled]} onPress={handleConcluir} disabled={loading}>
-            {loading ? <ActivityIndicator color={C.black} /> : <Text style={s.btnConcluirText}>{faltando>0?`${faltando} obrigatório(s) pendente(s)`:'✅ Concluir Inspeção'}</Text>}
-          </TouchableOpacity>
-        ) : (
-          <View style={s.concluidoBox}><Text style={s.concluidoText}>✅ Inspeção concluída</Text></View>
-        )}
-      </View>
-
-      <Modal visible={notaModal.open} transparent animationType="slide">
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
-            <Text style={s.modalTitle}>Adicionar observação</Text>
-            <TextInput style={s.modalInput} value={notaModal.value} onChangeText={v => setNotaModal(p => ({...p,value:v}))} placeholder="Descreva sua observação..." placeholderTextColor={C.textMuted} multiline numberOfLines={4} textAlignVertical="top" autoFocus />
-            <View style={{flexDirection:'row',gap:S.md}}>
-              <TouchableOpacity style={s.modalCancel} onPress={() => setNotaModal({open:false,itemId:'',value:''})}>
-                <Text style={{color:C.textSecondary,fontWeight:'600'}}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.modalSave} onPress={saveNota}>
-                <Text style={{color:C.black,fontWeight:'700'}}>Salvar</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={s.photoGrid}>
+            {fotos.map((uri, i) => (
+              <Image key={i} source={{ uri }} style={s.photoThumb} />
+            ))}
           </View>
         </View>
-      </Modal>
-    </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Localização GPS</Text>
+          <TouchableOpacity style={s.gpsBtn} onPress={getGPS}>
+            <Text style={s.gpsBtnTxt}>📍 {location ? `${location.lat?.toFixed(4)}, ${location.lng?.toFixed(4)}` : 'Capturar Localização'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Assinatura do Responsável</Text>
+          <TextInput
+            style={s.input}
+            value={assinatura}
+            onChangeText={setAssinatura}
+            placeholder="Nome completo do responsável"
+            placeholderTextColor={C.textMuted}
+          />
+        </View>
+
+        <TouchableOpacity style={s.saveBtn} onPress={salvar} disabled={saving}>
+          {saving ? <ActivityIndicator color={C.black} /> : <Text style={s.saveBtnTxt}>💾 Salvar Progresso</Text>}
+        </TouchableOpacity>
+
+        {checklist.status !== 'concluido' && (
+          <TouchableOpacity style={s.concludeBtn} onPress={concluir} disabled={concluding}>
+            {concluding ? <ActivityIndicator color={C.white} /> : <Text style={s.concludeBtnTxt}>✅ Concluir Inspeção</Text>}
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container:{flex:1,backgroundColor:C.offWhite},
-  header:{backgroundColor:C.black,paddingTop:52,paddingHorizontal:S.xl,paddingBottom:S.xl},
-  back:{color:C.yellow,fontSize:F.sm,marginBottom:S.md},
-  normaBadge:{backgroundColor:C.yellow,borderRadius:R.full,paddingHorizontal:S.md,paddingVertical:3,alignSelf:'flex-start',marginBottom:S.sm},
-  normaBadgeText:{fontSize:F.xs,color:C.black,fontWeight:'700'},
-  headerTitle:{fontSize:F.xl,color:'#fff',fontWeight:'700',marginBottom:4},
-  headerSub:{fontSize:F.sm,color:'rgba(255,255,255,0.6)',marginBottom:S.lg},
-  progressWrap:{gap:S.xs},
-  progressBar:{height:8,backgroundColor:'rgba(255,255,255,0.2)',borderRadius:4,overflow:'hidden'},
-  progressFill:{height:8,borderRadius:4},
-  progressText:{fontSize:F.xs,color:'rgba(255,255,255,0.7)'},
-  faltandoText:{fontSize:F.xs,color:C.danger},
-  item:{backgroundColor:C.white,borderRadius:R.md,padding:S.md,marginBottom:S.sm,borderWidth:1.5,borderColor:C.border,...Sh.sm},
-  itemDone:{borderColor:'#22863A40',backgroundColor:'#E6F4EA'},
-  itemRow:{flexDirection:'row',alignItems:'flex-start',gap:S.md},
-  checkbox:{width:26,height:26,borderRadius:R.sm,borderWidth:2,borderColor:C.borderStrong,alignItems:'center',justifyContent:'center',marginTop:2},
-  checkboxDone:{backgroundColor:C.success,borderColor:C.success},
-  checkmark:{color:'#fff',fontWeight:'900',fontSize:14},
-  itemLabel:{fontSize:F.sm,color:C.textPrimary,lineHeight:20},
-  itemLabelDone:{textDecorationLine:'line-through',color:C.textMuted},
-  obrigTag:{backgroundColor:'#FDECEA',borderRadius:R.full,paddingHorizontal:6,paddingVertical:2},
-  obrigTagText:{fontSize:9,color:C.danger,fontWeight:'700'},
-  fotoTag:{backgroundColor:'#E3F2FD',borderRadius:R.full,paddingHorizontal:6,paddingVertical:2},
-  fotoTagText:{fontSize:9,color:C.info,fontWeight:'700'},
-  notaText:{fontSize:F.xs,color:C.textSecondary,fontStyle:'italic',marginTop:S.sm,paddingLeft:42,borderTopWidth:1,borderTopColor:C.border,paddingTop:S.sm},
-  footer:{position:'absolute',bottom:0,left:0,right:0,backgroundColor:C.white,borderTopWidth:1,borderTopColor:C.border,padding:S.lg},
-  btnConcluir:{backgroundColor:C.yellow,borderRadius:R.full,padding:S.lg,alignItems:'center'},
-  btnDisabled:{backgroundColor:C.surfaceAlt},
-  btnConcluirText:{fontSize:F.base,fontWeight:'700',color:C.black},
-  concluidoBox:{backgroundColor:'#E6F4EA',borderRadius:R.full,padding:S.lg,alignItems:'center',borderWidth:1,borderColor:'#22863A40'},
-  concluidoText:{fontSize:F.base,fontWeight:'700',color:C.success},
-  modalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'flex-end'},
-  modalCard:{backgroundColor:C.white,borderTopLeftRadius:R.xl,borderTopRightRadius:R.xl,padding:S.xl,paddingBottom:40},
-  modalTitle:{fontSize:F.lg,fontWeight:'700',color:C.textPrimary,marginBottom:S.lg},
-  modalInput:{backgroundColor:C.surfaceAlt,borderRadius:R.md,padding:S.md,fontSize:F.md,color:C.textPrimary,minHeight:100,borderWidth:1,borderColor:C.border,marginBottom:S.lg},
-  modalCancel:{flex:1,padding:S.md,borderRadius:R.full,borderWidth:1,borderColor:C.border,alignItems:'center'},
-  modalSave:{flex:1,padding:S.md,borderRadius:R.full,backgroundColor:C.yellow,alignItems:'center'},
+  safe: { flex: 1, backgroundColor: C.offWhite },
+  scroll: { padding: S.md, paddingBottom: S.xxl },
+  titleBox: { backgroundColor: C.black, borderRadius: R.xl, padding: S.md, marginBottom: S.md },
+  title: { fontSize: F.lg, fontWeight: '700', color: C.white, marginBottom: S.sm },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  nrBadge: { backgroundColor: C.primary, borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: 2 },
+  nrTxt: { fontSize: F.xs, fontWeight: '700', color: C.black },
+  meta: { fontSize: F.xs, color: C.textMuted },
+  progBox: { backgroundColor: C.card, borderRadius: R.xl, padding: S.md, marginBottom: S.md, ...Sh.sm },
+  progLabel: { fontSize: F.sm, color: C.textSecondary },
+  progVal: { fontSize: 36, fontWeight: '800', color: C.primary },
+  progBg: { height: 10, backgroundColor: C.border, borderRadius: R.full, overflow: 'hidden', marginVertical: S.sm },
+  progFill: { height: 10, backgroundColor: C.primary, borderRadius: R.full },
+  progSub: { fontSize: F.xs, color: C.textSecondary },
+  section: { backgroundColor: C.card, borderRadius: R.xl, padding: S.md, marginBottom: S.md, ...Sh.sm },
+  sectionTitle: { fontSize: F.md, fontWeight: '700', color: C.textPrimary, marginBottom: S.md },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: S.sm, marginBottom: S.sm },
+  checkbox: { width: 24, height: 24, borderRadius: R.sm, borderWidth: 2, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  checkboxActive: { backgroundColor: C.success, borderColor: C.success },
+  checkmark: { color: C.white, fontSize: F.sm, fontWeight: '700' },
+  itemTxt: { flex: 1, fontSize: F.sm, color: C.textPrimary },
+  itemTxtDone: { textDecorationLine: 'line-through', color: C.textMuted },
+  empty: { color: C.textMuted, textAlign: 'center' },
+  textArea: {
+    borderWidth: 1, borderColor: C.border, borderRadius: R.md,
+    padding: S.md, fontSize: F.sm, color: C.textPrimary, minHeight: 100, textAlignVertical: 'top',
+  },
+  input: {
+    borderWidth: 1, borderColor: C.border, borderRadius: R.md,
+    padding: S.md, fontSize: F.sm, color: C.textPrimary,
+  },
+  photoRow: { flexDirection: 'row', gap: S.sm, marginBottom: S.sm },
+  photoBtn: { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: R.md, padding: S.sm, alignItems: 'center' },
+  photoBtnTxt: { fontSize: F.sm, color: C.textSecondary },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm },
+  photoThumb: { width: 80, height: 80, borderRadius: R.md },
+  gpsBtn: { borderWidth: 1, borderColor: C.border, borderRadius: R.md, padding: S.md, alignItems: 'center' },
+  gpsBtnTxt: { fontSize: F.sm, color: C.textSecondary },
+  saveBtn: { backgroundColor: C.primary, borderRadius: R.lg, padding: S.md, alignItems: 'center', marginBottom: S.sm, ...Sh.sm },
+  saveBtnTxt: { fontWeight: '700', fontSize: F.md, color: C.black },
+  concludeBtn: { backgroundColor: C.success, borderRadius: R.lg, padding: S.md, alignItems: 'center', ...Sh.sm },
+  concludeBtnTxt: { fontWeight: '700', fontSize: F.md, color: C.white },
 });
