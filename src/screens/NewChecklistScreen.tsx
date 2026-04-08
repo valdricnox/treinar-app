@@ -48,28 +48,23 @@ export default function NewChecklistScreen({ navigation }: any) {
       try {
         const res = await api.post('/checklists', payload);
         const newItem = res.data?.checklist || { ...payload, id: Date.now() };
-        dispatch(addChecklist(newItem));
-        Alert.alert('✅ Criado!', `Inspeção ${norma} criada com ${template.itens.length} itens.`, [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
+        const withTemplate = { ...newItem, _template: template };
+        dispatch(addChecklist(withTemplate));
+        navigation.replace('ChecklistWizard', { checklist: withTemplate });
       } catch {
         // Salva offline
-        const offlineItem = { ...payload, id: `offline_${Date.now()}`, _pendingSync: true };
+        const offlineItem = { ...payload, id: `offline_${Date.now()}`, _pendingSync: true, _template: template };
         dispatch(addChecklist(offlineItem));
         dispatch(addPendingSync(offlineItem));
         await saveOffline('pendingChecklists', offlineItem);
-        Alert.alert('💾 Salvo offline', 'Sem conexão com o servidor. A inspeção foi salva localmente e sincronizará depois.', [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
+        navigation.replace('ChecklistWizard', { checklist: offlineItem });
       }
     } else {
-      const offlineItem = { ...payload, id: `offline_${Date.now()}`, _pendingSync: true };
+      const offlineItem = { ...payload, id: `offline_${Date.now()}`, _pendingSync: true, _template: template };
       dispatch(addChecklist(offlineItem));
       dispatch(addPendingSync(offlineItem));
       await saveOffline('pendingChecklists', offlineItem);
-      Alert.alert('💾 Salvo offline', 'Você está sem conexão. A inspeção foi salva e sincronizará quando reconectar.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      navigation.replace('ChecklistWizard', { checklist: offlineItem });
     }
     setLoading(false);
   };

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, setChecklists } from '../store';
+import { RootState, setChecklists, removeChecklist } from '../store';
 import api from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 import { C, S, R, F, Sh } from '../theme';
@@ -29,6 +29,22 @@ export default function ChecklistsScreen({ navigation }: any) {
   };
 
   useEffect(() => { load(); }, []);
+
+  const arquivar = (item: any) => {
+    Alert.alert(
+      'Arquivar vistoria',
+      `Deseja arquivar "${item.titulo}"? A vistoria será removida da lista principal.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Arquivar', style: 'destructive', onPress: async () => {
+            dispatch(removeChecklist(item.id));
+            try { await api.delete(`/checklists/${item.id}`); } catch {}
+          },
+        },
+      ]
+    );
+  };
 
   const filtered = checklists.filter((c: any) => {
     const matchNr = nrFilter === 'Todas' || c.norma === nrFilter;
@@ -118,7 +134,7 @@ export default function ChecklistsScreen({ navigation }: any) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={[s.card, item._pendingSync && s.cardOffline]}
-            onPress={() => navigation.navigate('ChecklistDetail', { checklist: item })}
+            onPress={() => navigation.navigate('ChecklistWizard', { checklist: item })}
             activeOpacity={0.75}
           >
             <View style={s.cardTop}>
@@ -138,15 +154,20 @@ export default function ChecklistsScreen({ navigation }: any) {
               <Text style={s.metaItem}>👤 {item.responsavel || '—'}</Text>
             </View>
 
-            <View style={s.progressRow}>
-              <View style={s.progBg}>
-                <View style={[
-                  s.progFill,
-                  { width: `${item.progresso || 0}%` },
-                  { backgroundColor: item.status === 'concluido' ? C.success : C.primary },
-                ]} />
+            <View style={s.cardBottom}>
+              <View style={s.progressRow}>
+                <View style={s.progBg}>
+                  <View style={[
+                    s.progFill,
+                    { width: `${item.progresso || 0}%` },
+                    { backgroundColor: item.status === 'concluido' ? C.success : C.primary },
+                  ]} />
+                </View>
+                <Text style={s.progPct}>{item.progresso || 0}%</Text>
               </View>
-              <Text style={s.progPct}>{item.progresso || 0}%</Text>
+              <TouchableOpacity style={s.archiveBtn} onPress={(e) => { e.stopPropagation?.(); arquivar(item); }}>
+                <Text style={s.archiveBtnTxt}>🗑️</Text>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}
@@ -206,6 +227,9 @@ const s = StyleSheet.create({
   progPct: { fontSize: F.xs, fontWeight: '800', color: C.textSecondary, width: 34, textAlign: 'right' },
 
   emptyBox: { alignItems: 'center', padding: S.xxl },
+  cardBottom: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  archiveBtn: { width: 32, height: 32, borderRadius: R.md, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  archiveBtnTxt: { fontSize: F.sm },
   emptyEmoji: { fontSize: 48, marginBottom: S.md },
   emptyTxt: { fontSize: F.lg, fontWeight: '700', color: C.textPrimary },
   emptySub: { fontSize: F.sm, color: C.textTertiary, marginTop: S.xs },

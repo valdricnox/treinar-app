@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuth } from '../store';
 import api from '../services/api';
 import Logo from '../components/Logo';
+import ChangePasswordScreen from './ChangePasswordScreen';
 import { C, S, R, F, Sh } from '../theme';
 
 export default function LoginScreen() {
@@ -20,6 +21,8 @@ export default function LoginScreen() {
   const [showPass, setShowPass] = useState(false);
   const [focusEmail, setFocusEmail] = useState(false);
   const [focusSenha, setFocusSenha] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [userPendente, setUserPendente] = useState<any>(null);
 
   const handleLogin = async () => {
     if (!email.trim() || !senha.trim()) {
@@ -34,6 +37,14 @@ export default function LoginScreen() {
       });
       const { token, user } = res.data;
       await AsyncStorage.setItem('token', token);
+      if (user?.force_password_change) {
+        // Salva token temporário e redireciona para troca de senha
+        await AsyncStorage.setItem('temp_token', token);
+        setMustChangePassword(true);
+        setUserPendente(user);
+        setLoading(false);
+        return;
+      }
       dispatch(setAuth({ user, token }));
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || 'Não foi possível conectar. Verifique sua conexão.';
@@ -42,6 +53,17 @@ export default function LoginScreen() {
       setLoading(false);
     }
   };
+
+  if (mustChangePassword && userPendente) {
+    return (
+      <ChangePasswordScreen
+        user={userPendente}
+        onSuccess={(user, token) => {
+          dispatch(setAuth({ user, token }));
+        }}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={s.safe}>
@@ -125,6 +147,9 @@ export default function LoginScreen() {
             </View>
           </View>
 
+          <TouchableOpacity onPress={() => Alert.alert('Solicitar Acesso', 'Entre em contato com o administrador:\n\narmindo@treinar.eng.br\n\nInforme seu nome e função para receber suas credenciais de acesso.')} style={s.requestAccess}>
+            <Text style={s.requestAccessTxt}>Não tem acesso? Solicitar credenciais</Text>
+          </TouchableOpacity>
           <Text style={s.footer}>Treinar Engenharia © 2025 · Praia Grande, SP</Text>
 
         </ScrollView>
@@ -224,5 +249,7 @@ const s = StyleSheet.create({
   },
   infoTxt: { fontSize: F.xs, color: C.gray400, lineHeight: 18 },
 
-  footer: { textAlign: 'center', color: C.gray600, fontSize: F.xs, marginTop: S.xl, letterSpacing: 0.5 },
+  requestAccess: { alignItems: 'center', marginTop: S.lg },
+  requestAccessTxt: { fontSize: F.sm, color: C.primary, fontWeight: '600' },
+  footer: { textAlign: 'center', color: C.gray600, fontSize: F.xs, marginTop: S.sm, letterSpacing: 0.5 },
 });

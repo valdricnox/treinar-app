@@ -16,12 +16,15 @@ import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ChecklistsScreen from './src/screens/ChecklistsScreen';
 import ChecklistDetailScreen from './src/screens/ChecklistDetailScreen';
+import ChecklistWizardScreen from './src/screens/ChecklistWizardScreen';
 import NewChecklistScreen from './src/screens/NewChecklistScreen';
 import IncidentsScreen from './src/screens/IncidentsScreen';
 import NewIncidentScreen from './src/screens/NewIncidentScreen';
 import ReportsScreen from './src/screens/ReportsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import TeamScreen from './src/screens/TeamScreen';
+import AdminScreen from './src/screens/AdminScreen';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -39,6 +42,7 @@ function ChecklistStack() {
       <Stack.Screen name="Checklists" component={ChecklistsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ChecklistDetail" component={ChecklistDetailScreen} options={{ title: 'Detalhe da Inspeção' }} />
       <Stack.Screen name="NewChecklist" component={NewChecklistScreen} options={{ title: 'Nova Inspeção' }} />
+      <Stack.Screen name="ChecklistWizard" component={ChecklistWizardScreen} options={{ title: 'Vistoria', headerBackTitleVisible: false }} />
     </Stack.Navigator>
   );
 }
@@ -72,6 +76,7 @@ function NetworkMonitor() {
 function MainApp() {
   const { isLoggedIn, user } = useSelector((s: RootState) => s.auth);
   const isAdminOrGestor = user?.role === 'admin' || user?.role === 'gestor';
+  const isAdmin = user?.email === 'armindo@treinar.eng.br';
 
   if (!isLoggedIn) return <LoginScreen />;
 
@@ -125,6 +130,13 @@ function MainApp() {
             name="Perfil"
             component={ProfileScreen}
             options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />, tabBarLabel: 'Perfil' }}
+          />
+        )}
+        {isAdmin && (
+          <Tab.Screen
+            name="Admin"
+            component={AdminScreen}
+            options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />, tabBarLabel: 'Admin' }}
           />
         )}
       </Tab.Navigator>
