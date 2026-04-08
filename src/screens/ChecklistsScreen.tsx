@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, RefreshControl,
+  TextInput, RefreshControl, Pressable, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
@@ -30,21 +30,7 @@ export default function ChecklistsScreen({ navigation }: any) {
 
   useEffect(() => { load(); }, []);
 
-  const arquivar = (item: any) => {
-    Alert.alert(
-      'Arquivar vistoria',
-      `Deseja arquivar "${item.titulo}"? A vistoria será removida da lista principal.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Arquivar', style: 'destructive', onPress: async () => {
-            dispatch(removeChecklist(item.id));
-            try { await api.delete(`/checklists/${item.id}`); } catch {}
-          },
-        },
-      ]
-    );
-  };
+
 
   const filtered = checklists.filter((c: any) => {
     const matchNr = nrFilter === 'Todas' || c.norma === nrFilter;
@@ -133,10 +119,10 @@ export default function ChecklistsScreen({ navigation }: any) {
         }
         renderItem={({ item }) => (
           <View style={[s.card, item._pendingSync && s.cardOffline]}>
-            <TouchableOpacity
+            <Pressable
               style={s.cardTouchable}
               onPress={() => navigation.navigate('ChecklistWizard', { checklist: item })}
-              activeOpacity={0.75}
+              android_ripple={{ color: 'rgba(0,0,0,0.05)' }}
             >
               <View style={s.cardTop}>
                 <View style={s.nrPill}>
@@ -146,15 +132,12 @@ export default function ChecklistsScreen({ navigation }: any) {
                 <StatusBadge type="status" value={item.status || 'pendente'} />
                 {item._pendingSync && <Text style={s.offlineDot}>●</Text>}
               </View>
-
               <Text style={s.cardTitle} numberOfLines={2}>{item.titulo}</Text>
-
               <View style={s.cardMeta}>
                 <Text style={s.metaItem}>📍 {item.obra || '—'}</Text>
                 <Text style={s.metaDot}>·</Text>
                 <Text style={s.metaItem}>👤 {item.responsavel || '—'}</Text>
               </View>
-
               <View style={s.progressRow}>
                 <View style={s.progBg}>
                   <View style={[
@@ -165,11 +148,20 @@ export default function ChecklistsScreen({ navigation }: any) {
                 </View>
                 <Text style={s.progPct}>{item.progresso || 0}%</Text>
               </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.archiveBtn} onPress={() => arquivar(item)}>
+            </Pressable>
+            <Pressable
+              style={s.archiveBtn}
+              onPress={() => Alert.alert(
+                'Arquivar vistoria',
+                `Deseja arquivar "${item.titulo}"?`,
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { text: 'Arquivar', style: 'destructive', onPress: () => { dispatch(removeChecklist(item.id)); try { api.delete(`/checklists/${item.id}`); } catch {} } },
+                ]
+              )}
+            >
               <Text style={s.archiveBtnTxt}>🗑️</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )}
       />
