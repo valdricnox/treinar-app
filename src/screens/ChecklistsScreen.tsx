@@ -132,29 +132,29 @@ export default function ChecklistsScreen({ navigation }: any) {
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[s.card, item._pendingSync && s.cardOffline]}
-            onPress={() => navigation.navigate('ChecklistWizard', { checklist: item })}
-            activeOpacity={0.75}
-          >
-            <View style={s.cardTop}>
-              <View style={s.nrPill}>
-                <Text style={s.nrPillTxt}>{item.norma}</Text>
+          <View style={[s.card, item._pendingSync && s.cardOffline]}>
+            <TouchableOpacity
+              style={s.cardTouchable}
+              onPress={() => navigation.navigate('ChecklistWizard', { checklist: item })}
+              activeOpacity={0.75}
+            >
+              <View style={s.cardTop}>
+                <View style={s.nrPill}>
+                  <Text style={s.nrPillTxt}>{item.norma}</Text>
+                </View>
+                <View style={{ flex: 1 }} />
+                <StatusBadge type="status" value={item.status || 'pendente'} />
+                {item._pendingSync && <Text style={s.offlineDot}>●</Text>}
               </View>
-              <View style={{ flex: 1 }} />
-              <StatusBadge type="status" value={item.status || 'pendente'} />
-              {item._pendingSync && <Text style={s.offlineDot}>●</Text>}
-            </View>
 
-            <Text style={s.cardTitle} numberOfLines={2}>{item.titulo}</Text>
+              <Text style={s.cardTitle} numberOfLines={2}>{item.titulo}</Text>
 
-            <View style={s.cardMeta}>
-              <Text style={s.metaItem}>📍 {item.obra || '—'}</Text>
-              <Text style={s.metaDot}>·</Text>
-              <Text style={s.metaItem}>👤 {item.responsavel || '—'}</Text>
-            </View>
+              <View style={s.cardMeta}>
+                <Text style={s.metaItem}>📍 {item.obra || '—'}</Text>
+                <Text style={s.metaDot}>·</Text>
+                <Text style={s.metaItem}>👤 {item.responsavel || '—'}</Text>
+              </View>
 
-            <View style={s.cardBottom}>
               <View style={s.progressRow}>
                 <View style={s.progBg}>
                   <View style={[
@@ -165,11 +165,12 @@ export default function ChecklistsScreen({ navigation }: any) {
                 </View>
                 <Text style={s.progPct}>{item.progresso || 0}%</Text>
               </View>
-              <TouchableOpacity style={s.archiveBtn} onPress={(e) => { e.stopPropagation?.(); arquivar(item); }}>
-                <Text style={s.archiveBtnTxt}>🗑️</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.archiveBtn} onPress={() => arquivar(item)}>
+              <Text style={s.archiveBtnTxt}>🗑️</Text>
+            </TouchableOpacity>
+          </View>
         )}
       />
     </SafeAreaView>
@@ -227,7 +228,7 @@ const s = StyleSheet.create({
   progPct: { fontSize: F.xs, fontWeight: '800', color: C.textSecondary, width: 34, textAlign: 'right' },
 
   emptyBox: { alignItems: 'center', padding: S.xxl },
-  cardBottom: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  cardTouchable: { flex: 1 },
   archiveBtn: { width: 32, height: 32, borderRadius: R.md, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
   archiveBtnTxt: { fontSize: F.sm },
   emptyEmoji: { fontSize: 48, marginBottom: S.md },

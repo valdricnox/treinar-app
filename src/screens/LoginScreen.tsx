@@ -73,7 +73,7 @@ export default function LoginScreen() {
           {/* Header com logo */}
           <View style={s.header}>
             <View style={s.logoWrap}>
-              <Logo size="lg" variant="white" />
+              <Logo size="lg" />
             </View>
             <View style={s.tagRow}>
               <View style={s.tagLine} />
