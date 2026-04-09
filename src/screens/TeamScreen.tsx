@@ -6,19 +6,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, setTeam, addMember, removeMember } from '../store';
+import { IcTeam, IcPlus, IcEdit, IcKey, IcTrash, IcUser, IcShield, IcChevronRight } from '../components/Icons';
 import api from '../services/api';
 import { C, S, R, F, Sh } from '../theme';
 
 const ROLES = [
-  { key: 'inspetor', label: 'Inspetor',    emoji: '🦺', desc: 'Realiza inspeções e registra incidentes' },
-  { key: 'gestor',   label: 'Gestor',      emoji: '📊', desc: 'Gerencia equipe e visualiza relatórios' },
-  { key: 'admin',    label: 'Administrador', emoji: '⚙️', desc: 'Acesso total ao sistema' },
+  { key: 'inspetor', label: 'Inspetor', desc: 'Realiza inspeções e registra incidentes' },
+  { key: 'gestor',   label: 'Gestor', desc: 'Gerencia equipe e visualiza relatórios' },
+  { key: 'admin',    label: 'Administrador', desc: 'Acesso total ao sistema' },
 ];
 
 const ROLE_CONFIG: any = {
-  admin:    { bg: C.dangerBg,  text: C.dangerDark,  emoji: '⚙️' },
-  gestor:   { bg: C.infoBg,    text: C.infoDark,    emoji: '📊' },
-  inspetor: { bg: C.successBg, text: C.successDark, emoji: '🦺' },
+  admin:    { bg: C.dangerBg,  text: C.dangerDark  },
+  gestor:   { bg: C.infoBg,    text: C.infoDark    },
+  inspetor: { bg: C.successBg, text: C.successDark },
 };
 
 export default function TeamScreen() {
@@ -140,7 +141,7 @@ export default function TeamScreen() {
           const cfg = ROLE_CONFIG[r.key];
           return (
             <View key={r.key} style={[s.summaryCard, { backgroundColor: cfg.bg }]}>
-              <Text style={s.summaryEmoji}>{r.emoji}</Text>
+              <View style={[s.summaryDot, { backgroundColor: ROLE_CFG[r.key].text }]} />
               <Text style={[s.summaryVal, { color: cfg.text }]}>{count}</Text>
               <Text style={[s.summaryLabel, { color: cfg.text }]}>{r.label}</Text>
             </View>
@@ -156,7 +157,7 @@ export default function TeamScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={C.primary} />}
         ListEmptyComponent={
           <View style={s.emptyBox}>
-            <Text style={s.emptyEmoji}>👥</Text>
+            <IcTeam color={C.gray300} size={48} />
             <Text style={s.emptyTxt}>Nenhum colaborador cadastrado</Text>
             {canManage && <Text style={s.emptySub}>Toque em "+ Adicionar" para convidar</Text>}
           </View>
@@ -179,7 +180,6 @@ export default function TeamScreen() {
               </View>
               <View style={s.cardRight}>
                 <View style={[s.roleBadge, { backgroundColor: cfg.bg }]}>
-                  <Text style={s.roleEmoji}>{cfg.emoji}</Text>
                   <Text style={[s.roleTxt, { color: cfg.text }]}>{item.role}</Text>
                 </View>
                 {canManage && !isMe && (
@@ -252,7 +252,7 @@ export default function TeamScreen() {
                   onPress={() => setRole(r.key)}
                 >
                   <View style={s.roleOptionLeft}>
-                    <Text style={s.roleOptionEmoji}>{r.emoji}</Text>
+                    <IcUser color={editRole === r.key ? C.textPrimary : C.textTertiary} size={18} />
                     <View>
                       <Text style={[s.roleOptionLabel, role === r.key && s.roleOptionLabelActive]}>{r.label}</Text>
                       <Text style={s.roleOptionDesc}>{r.desc}</Text>
@@ -289,7 +289,7 @@ const s = StyleSheet.create({
 
   summaryRow: { flexDirection: 'row', paddingHorizontal: S.md, gap: S.sm, marginBottom: S.sm },
   summaryCard: { flex: 1, borderRadius: R.xl, padding: S.sm, alignItems: 'center', gap: 2 },
-  summaryEmoji: { fontSize: 20 },
+  summaryDot: { width: 8, height: 8, borderRadius: 4 },
   summaryVal: { fontSize: F.xl, fontWeight: '900' },
   summaryLabel: { fontSize: F.xs, fontWeight: '700' },
 
@@ -314,7 +314,7 @@ const s = StyleSheet.create({
   memberObra: { fontSize: F.xs, color: C.textTertiary },
   cardRight: { alignItems: 'flex-end', gap: S.xs },
   roleBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: R.full, paddingHorizontal: S.xs + 2, paddingVertical: 3 },
-  roleEmoji: { fontSize: F.xs },
+
   roleTxt: { fontSize: F.xs, fontWeight: '800' },
   deleteBtn: { padding: S.xs },
   deleteBtnTxt: { fontSize: F.md },
@@ -342,7 +342,7 @@ const s = StyleSheet.create({
   roleOption: { flexDirection: 'row', alignItems: 'center', padding: S.md, borderRadius: R.xl, marginBottom: S.sm, backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border },
   roleOptionActive: { backgroundColor: 'rgba(245,200,0,0.05)', borderColor: C.primary },
   roleOptionLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: S.sm },
-  roleOptionEmoji: { fontSize: F.xl },
+
   roleOptionLabel: { fontSize: F.sm, fontWeight: '700', color: C.textSecondary },
   roleOptionLabelActive: { color: C.textPrimary },
   roleOptionDesc: { fontSize: F.xs, color: C.textTertiary, marginTop: 1 },

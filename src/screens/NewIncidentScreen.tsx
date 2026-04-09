@@ -9,13 +9,14 @@ import * as Location from 'expo-location';
 import { useDispatch, useSelector } from 'react-redux';
 import { addIncident, addIncidentPendingSync, RootState } from '../store';
 import api, { saveOffline } from '../services/api';
+import { IcCamera, IcGallery, IcLocation, IcWarning } from '../components/Icons';
 import { C, S, R, F, Sh } from '../theme';
 
 const SEVERIDADES = [
-  { key: 'critico', label: 'Crítico', emoji: '🔴', bg: C.dangerBg,  text: C.dangerDark,  border: C.danger },
-  { key: 'alto',    label: 'Alto',    emoji: '🟠', bg: C.warningBg, text: C.warningDark, border: C.warning },
-  { key: 'medio',   label: 'Médio',   emoji: '🔵', bg: C.infoBg,    text: C.infoDark,    border: C.info },
-  { key: 'baixo',   label: 'Baixo',   emoji: '🟢', bg: C.successBg, text: C.successDark, border: C.success },
+  { key: 'critico', label: 'Crítico', bg: C.dangerBg,  text: C.dangerDark,  border: C.danger },
+  { key: 'alto',    label: 'Alto', bg: C.warningBg, text: C.warningDark, border: C.warning },
+  { key: 'medio',   label: 'Médio', bg: C.infoBg,    text: C.infoDark,    border: C.info },
+  { key: 'baixo',   label: 'Baixo', bg: C.successBg, text: C.successDark, border: C.success },
 ];
 
 const TIPOS = [
@@ -139,7 +140,7 @@ export default function NewIncidentScreen({ navigation }: any) {
                 ]}
                 onPress={() => setSeveridade(sev.key)}
               >
-                <Text style={s.sevOptionEmoji}>{sev.emoji}</Text>
+                <View style={[s.sevOptionDot, { backgroundColor: sev.border }]} />
                 <Text style={[s.sevOptionTxt, { color: sev.text }]}>{sev.label}</Text>
                 {severidade === sev.key && <View style={[s.sevCheck, { backgroundColor: sev.border }]}><Text style={s.sevCheckTxt}>✓</Text></View>}
               </TouchableOpacity>
@@ -147,7 +148,7 @@ export default function NewIncidentScreen({ navigation }: any) {
           </View>
           {severidade === 'critico' && (
             <View style={s.critAlert}>
-              <Text style={s.critAlertTxt}>🚨 Incidente crítico — notifique o responsável imediatamente!</Text>
+              <Text style={s.critAlertTxt}>Incidente crítico — notifique o responsável imediatamente!</Text>
             </View>
           )}
         </View>
@@ -204,11 +205,11 @@ export default function NewIncidentScreen({ navigation }: any) {
           <Text style={s.sectionSub}>Fotografe o local e as evidências do incidente</Text>
           <View style={s.photoActions}>
             <TouchableOpacity style={s.photoBtn} onPress={takePhoto}>
-              <Text style={s.photoBtnEmoji}>📷</Text>
+              <IcCamera color={C.textSecondary} size={18} />
               <Text style={s.photoBtnTxt}>Câmera</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.photoBtn} onPress={pickPhoto}>
-              <Text style={s.photoBtnEmoji}>🖼️</Text>
+              <IcGallery color={C.textSecondary} size={18} />
               <Text style={s.photoBtnTxt}>Galeria</Text>
             </TouchableOpacity>
           </View>
@@ -230,7 +231,7 @@ export default function NewIncidentScreen({ navigation }: any) {
         <View style={s.card}>
           <Text style={s.sectionTitle}>Localização GPS</Text>
           <TouchableOpacity style={[s.gpsBtn, location && s.gpsBtnActive]} onPress={getGPS}>
-            <Text style={s.gpsEmoji}>📍</Text>
+            <IcLocation color={location ? C.successDark : C.textSecondary} size={18} />
             <Text style={[s.gpsTxt, location && { color: C.success }]}>
               {location ? `✅ ${location.lat?.toFixed(5)}, ${location.lng?.toFixed(5)}` : 'Capturar localização do incidente'}
             </Text>
@@ -275,7 +276,7 @@ const s = StyleSheet.create({
 
   sevGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm },
   sevOption: { flex: 1, minWidth: '45%', borderRadius: R.xl, padding: S.md, alignItems: 'center', gap: 4, position: 'relative' },
-  sevOptionEmoji: { fontSize: 24 },
+  sevOptionDot: { width: 12, height: 12, borderRadius: 6 },
   sevOptionTxt: { fontWeight: '800', fontSize: F.sm },
   sevCheck: { position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   sevCheckTxt: { color: C.white, fontSize: 10, fontWeight: '900' },
@@ -290,7 +291,7 @@ const s = StyleSheet.create({
 
   photoActions: { flexDirection: 'row', gap: S.sm, marginBottom: S.sm },
   photoBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.xs, borderWidth: 1, borderColor: C.border, borderRadius: R.lg, padding: S.sm, borderStyle: 'dashed' },
-  photoBtnEmoji: { fontSize: F.lg },
+
   photoBtnTxt: { fontSize: F.sm, color: C.textSecondary, fontWeight: '600' },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm },
   photoWrap: { position: 'relative' },
@@ -300,7 +301,7 @@ const s = StyleSheet.create({
 
   gpsBtn: { flexDirection: 'row', alignItems: 'center', gap: S.sm, borderWidth: 1, borderColor: C.border, borderRadius: R.lg, padding: S.md },
   gpsBtnActive: { borderColor: C.success, backgroundColor: C.successBg },
-  gpsEmoji: { fontSize: F.lg },
+
   gpsTxt: { fontSize: F.sm, color: C.textSecondary, flex: 1 },
 
   offlineNote: { backgroundColor: C.warningBg, borderRadius: R.lg, padding: S.md, marginBottom: S.sm, borderWidth: 1, borderColor: C.warningBorder },

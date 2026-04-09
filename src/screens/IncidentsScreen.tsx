@@ -7,6 +7,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, setIncidents } from '../store';
 import api from '../services/api';
 import StatusBadge from '../components/StatusBadge';
+import { IcWarning, IcPin, IcBadge, IcPerson } from '../components/Icons';
 import OfflineBanner from '../components/OfflineBanner';
 import { C, S, R, F, Sh } from '../theme';
 
@@ -68,7 +69,7 @@ export default function IncidentsScreen({ navigation }: any) {
               style={[s.sevCard, { backgroundColor: cfg.bg, borderColor: filter === key ? cfg.dot : 'transparent', borderWidth: 2 }]}
               onPress={() => setFilter(filter === key ? 'Todos' : key)}
             >
-              <Text style={s.sevEmoji}>{cfg.emoji}</Text>
+              <View style={[s.sevDot, { backgroundColor: cfg.dot }]} />
               <Text style={[s.sevVal, { color: cfg.text }]}>{val as number}</Text>
               <Text style={[s.sevLabel, { color: cfg.text }]}>{cfg.label}</Text>
             </TouchableOpacity>
@@ -99,7 +100,7 @@ export default function IncidentsScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={s.emptyBox}>
-            <Text style={s.emptyEmoji}>⚠️</Text>
+            <IcWarning color={C.warning} size={48} />
             <Text style={s.emptyTxt}>Nenhum incidente registrado</Text>
             <Text style={s.emptySub}>Registre incidentes para acompanhar a segurança</Text>
           </View>
@@ -111,7 +112,7 @@ export default function IncidentsScreen({ navigation }: any) {
             <View style={[s.card, { borderLeftColor: cfg.dot, borderLeftWidth: 4 }]}>
               <View style={s.cardTop}>
                 <View style={[s.sevBadge, { backgroundColor: cfg.bg }]}>
-                  <Text style={s.sevBadgeEmoji}>{cfg.emoji}</Text>
+                  <View style={[s.sevBadgeDot, { backgroundColor: cfg.dot }]} />
                   <Text style={[s.sevBadgeTxt, { color: cfg.text }]}>{cfg.label}</Text>
                 </View>
                 <View style={{ flex: 1 }} />
@@ -123,11 +124,11 @@ export default function IncidentsScreen({ navigation }: any) {
               <Text style={s.cardDesc} numberOfLines={2}>{item.descricao}</Text>
 
               <View style={s.cardFooter}>
-                <Text style={s.footerItem}>📍 {item.local || item.obra || '—'}</Text>
+                <Text style={s.footerItem}>{item.local || item.obra || '—'}</Text>
                 <Text style={s.footerDot}>·</Text>
-                <Text style={s.footerItem}>🏷️ {item.tipo || '—'}</Text>
+                <Text style={s.footerItem}>{item.tipo || '—'}</Text>
                 <Text style={s.footerDot}>·</Text>
-                <Text style={s.footerItem}>👤 {item.responsavel || '—'}</Text>
+                <Text style={s.footerItem}>{item.responsavel || '—'}</Text>
               </View>
 
               {item.acao ? (
@@ -154,7 +155,7 @@ const s = StyleSheet.create({
 
   sevRow: { flexDirection: 'row', paddingHorizontal: S.md, gap: S.sm, marginBottom: S.sm },
   sevCard: { flex: 1, borderRadius: R.xl, padding: S.sm, alignItems: 'center', gap: 2 },
-  sevEmoji: { fontSize: 18 },
+  sevDot: { width: 10, height: 10, borderRadius: 5 },
   sevVal: { fontSize: F.xl, fontWeight: '900' },
   sevLabel: { fontSize: F.xs, fontWeight: '700' },
 
@@ -174,7 +175,7 @@ const s = StyleSheet.create({
   card: { backgroundColor: C.card, borderRadius: R.xxl, padding: S.md, ...Sh.sm },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: S.sm, marginBottom: S.sm },
   sevBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: R.full, paddingHorizontal: S.sm, paddingVertical: 3 },
-  sevBadgeEmoji: { fontSize: F.xs },
+  sevBadgeDot: { width: 7, height: 7, borderRadius: 3.5 },
   sevBadgeTxt: { fontSize: F.xs, fontWeight: '800' },
   cardDate: { fontSize: F.xs, color: C.textTertiary, marginRight: S.xs },
   cardTitle: { fontSize: F.md, fontWeight: '700', color: C.textPrimary, marginBottom: S.xs },

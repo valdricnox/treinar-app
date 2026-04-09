@@ -9,6 +9,7 @@ import { RootState, setChecklists, setIncidents, setLastSync, setOnline } from '
 import api from '../services/api';
 import { C, S, R, F, Sh } from '../theme';
 import OfflineBanner from '../components/OfflineBanner';
+import { IcChecklists, IcIncidents, IcReports, IcTeam, IcUser } from '../components/Icons';
 
 const { width } = Dimensions.get('window');
 
@@ -89,7 +90,7 @@ export default function DashboardScreen({ navigation }: any) {
         <View style={s.header}>
           <View style={{ flex: 1 }}>
             <Text style={s.saudacao}>{saudacao},</Text>
-            <Text style={s.nomeUsuario} numberOfLines={1}>{user?.name?.split(' ')[0]} 👋</Text>
+            <Text style={s.nomeUsuario} numberOfLines={1}>{user?.name?.split(' ')[0]}</Text>
             <Text style={s.syncTxt}>{formatSync(lastSync)}</Text>
           </View>
           <View style={[s.rolePill, { backgroundColor: roleConf.bg, borderColor: roleConf.border }]}>
@@ -143,26 +144,26 @@ export default function DashboardScreen({ navigation }: any) {
         <View style={s.actionsRow}>
           <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('Inspeções', { screen: 'NewChecklist' })}>
             <View style={[s.actionIcon, { backgroundColor: 'rgba(245,200,0,0.12)' }]}>
-              <Text style={s.actionEmoji}>📋</Text>
+              <IcChecklists color="#F5C800" size={22} />
             </View>
             <Text style={s.actionTxt}>Nova{'\n'}Inspeção</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('Incidentes', { screen: 'NewIncident' })}>
             <View style={[s.actionIcon, { backgroundColor: 'rgba(255,59,48,0.12)' }]}>
-              <Text style={s.actionEmoji}>⚠️</Text>
+              <IcIncidents color="#FF3B30" size={22} />
             </View>
             <Text style={s.actionTxt}>Novo{'\n'}Incidente</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('Relatórios')}>
             <View style={[s.actionIcon, { backgroundColor: 'rgba(10,132,255,0.12)' }]}>
-              <Text style={s.actionEmoji}>📄</Text>
+              <IcReports color="#0A84FF" size={22} />
             </View>
             <Text style={s.actionTxt}>Ver{'\n'}Relatórios</Text>
           </TouchableOpacity>
           {(user?.role === 'admin' || user?.role === 'gestor') && (
             <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('Equipe')}>
               <View style={[s.actionIcon, { backgroundColor: 'rgba(48,209,88,0.12)' }]}>
-                <Text style={s.actionEmoji}>👥</Text>
+                <IcTeam color="#30D158" size={22} />
               </View>
               <Text style={s.actionTxt}>Gerenciar{'\n'}Equipe</Text>
             </TouchableOpacity>

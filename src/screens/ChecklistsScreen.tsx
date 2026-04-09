@@ -12,6 +12,7 @@ import {
 } from '../store';
 import api from '../services/api';
 import StatusBadge from '../components/StatusBadge';
+import { IcSearch, IcArchive, IcPlus, IcChecklists, IcEdit, IcTrash } from '../components/Icons';
 import { C, S, R, F, Sh } from '../theme';
 
 const NRS = ['Todas','NR-5','NR-6','NR-7','NR-9','NR-10','NR-11','NR-12','NR-17','NR-18','NR-20','NR-21','NR-23','NR-26','NR-33','NR-35'];
@@ -93,7 +94,7 @@ export default function ChecklistsScreen({ navigation }: any) {
         <View style={s.headerRight}>
           {archived.length > 0 && (
             <Pressable style={s.archivedBtn} onPress={() => setShowArchived(true)}>
-              <Text style={s.archivedBtnTxt}>📦 {archived.length}</Text>
+              <Text style={s.archivedBtnTxt}>{archived.length} arquivadas</Text>
             </Pressable>
           )}
           <Pressable style={s.newBtn} onPress={() => navigation.navigate('NewChecklist')}>
@@ -118,7 +119,7 @@ export default function ChecklistsScreen({ navigation }: any) {
       </View>
 
       <View style={s.searchWrap}>
-        <Text style={s.searchIcon}>🔍</Text>
+        <IcSearch color={C.textTertiary} size={16} />
         <TextInput style={s.search} value={search} onChangeText={setSearch}
           placeholder="Buscar por título ou obra..." placeholderTextColor={C.textTertiary} />
         {search ? <Pressable onPress={() => setSearch('')} hitSlop={8}><Text style={s.clearBtn}>✕</Text></Pressable> : null}
@@ -141,7 +142,7 @@ export default function ChecklistsScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={s.emptyBox}>
-            <Text style={s.emptyEmoji}>📋</Text>
+            <IcChecklists color={C.gray300} size={48} />
             <Text style={s.emptyTxt}>{search || nrFilter !== 'Todas' ? 'Nenhuma encontrada' : 'Nenhuma inspeção ativa'}</Text>
             <Text style={s.emptySub}>{search || nrFilter !== 'Todas' ? 'Ajuste os filtros' : 'Toque em "+ Nova" para criar'}</Text>
           </View>
@@ -184,16 +185,16 @@ export default function ChecklistsScreen({ navigation }: any) {
             <Text style={s.sheetSubtitle}>{menuItem?.norma} · {menuItem?.obra}</Text>
             <View style={s.sheetDivider} />
             <Pressable style={s.sheetItem} onPress={() => { navigation.navigate('ChecklistWizard', { checklist: menuItem }); setMenuItem(null); }}>
-              <Text style={s.sheetItemIcon}>✏️</Text>
+              <IcEdit color={C.textSecondary} size={18} />
               <Text style={s.sheetItemTxt}>Abrir e editar</Text>
             </Pressable>
             <Pressable style={s.sheetItem} onPress={() => confirmarArquivar(menuItem)}>
-              <Text style={s.sheetItemIcon}>📦</Text>
+              <IcArchive color={C.textSecondary} size={18} />
               <Text style={s.sheetItemTxt}>Arquivar inspeção</Text>
             </Pressable>
             <View style={s.sheetDivider} />
             <Pressable style={s.sheetItem} onPress={() => confirmarExcluir(menuItem)}>
-              <Text style={s.sheetItemIcon}>🗑️</Text>
+              <IcTrash color={C.danger} size={18} />
               <Text style={[s.sheetItemTxt, { color: C.danger }]}>Excluir permanentemente</Text>
             </Pressable>
           </View>
@@ -272,7 +273,7 @@ const s = StyleSheet.create({
   statVal: { fontSize: F.md, fontWeight: '800' },
   statLbl: { fontSize: F.xs, fontWeight: '600' },
   searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: R.xl, marginHorizontal: S.md, marginBottom: S.sm, paddingHorizontal: S.md, borderWidth: 1, borderColor: C.border, ...Sh.xs },
-  searchIcon: { fontSize: F.sm, marginRight: S.xs },
+  searchIcon: { marginRight: S.xs },
   search: { flex: 1, paddingVertical: S.sm + 2, fontSize: F.sm, color: C.textPrimary },
   clearBtn: { fontSize: F.sm, color: C.textTertiary, padding: S.xs },
   filterList: { paddingHorizontal: S.md, gap: S.xs, paddingBottom: S.sm },
@@ -308,7 +309,7 @@ const s = StyleSheet.create({
   sheetSubtitle: { fontSize: F.xs, color: C.textTertiary, marginTop: 2, marginBottom: S.sm },
   sheetDivider: { height: 1, backgroundColor: C.border, marginVertical: S.xs },
   sheetItem: { flexDirection: 'row', alignItems: 'center', gap: S.sm, padding: S.md, borderRadius: R.lg },
-  sheetItemIcon: { fontSize: F.lg, width: 28 },
+  sheetItemIcon: { width: 28, alignItems: 'center' },
   sheetItemTxt: { fontSize: F.md, color: C.textPrimary, fontWeight: '500' },
   sheetClose: { fontSize: F.lg, color: C.textTertiary },
   archivedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.md, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.card },

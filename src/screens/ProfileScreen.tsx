@@ -5,14 +5,15 @@ import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootState, clearAuth } from '../store';
 import Logo from '../components/Logo';
+import { IcLogout, IcShield, IcActivity, IcUser, IcCheck, IcWarning } from '../components/Icons';
 import { C, S, R, F, Sh } from '../theme';
 
 const NRS_ALL = ['NR-5','NR-6','NR-7','NR-9','NR-10','NR-11','NR-12','NR-17','NR-18','NR-20','NR-21','NR-23','NR-26','NR-33','NR-35'];
 
 const ROLE_CONFIG: any = {
-  admin:    { label: 'Administrador', emoji: '⚙️', bg: C.dangerBg,  text: C.dangerDark },
-  gestor:   { label: 'Gestor',        emoji: '📊', bg: C.infoBg,    text: C.infoDark },
-  inspetor: { label: 'Inspetor',      emoji: '🦺', bg: C.successBg, text: C.successDark },
+  admin:    { label: 'Administrador', bg: C.dangerBg,  text: C.dangerDark },
+  gestor:   { label: 'Gestor', bg: C.infoBg,    text: C.infoDark },
+  inspetor: { label: 'Inspetor', bg: C.successBg, text: C.successDark },
 };
 
 export default function ProfileScreen() {
@@ -65,12 +66,11 @@ export default function ProfileScreen() {
           <Text style={s.profileName}>{user?.name}</Text>
           <Text style={s.profileEmail}>{user?.email}</Text>
           <View style={[s.rolePill, { backgroundColor: roleConf.bg }]}>
-            <Text style={s.roleEmoji}>{roleConf.emoji}</Text>
             <Text style={[s.roleTxt, { color: roleConf.text }]}>{roleConf.label}</Text>
           </View>
           {user?.obra ? (
             <View style={s.obraRow}>
-              <Text style={s.obraTxt}>📍 {user.obra}</Text>
+              <Text style={s.obraTxt}>{user.obra}</Text>
             </View>
           ) : null}
         </View>
@@ -87,7 +87,7 @@ export default function ProfileScreen() {
             Última sync: {formatSync(lastSync)}
           </Text>
           {pendingCount > 0 && (
-            <Text style={s.pendingTxt}>⚠️ {pendingCount} item(s) aguardando sincronização</Text>
+            <Text style={s.pendingTxt}>{pendingCount} item(s) aguardando sincronização</Text>
           )}
         </View>
 
@@ -126,7 +126,7 @@ export default function ProfileScreen() {
           <View style={s.nrGrid}>
             {NRS_ALL.map((nr) => (
               <View key={nr} style={s.nrChip}>
-                <Text style={s.nrCheck}>✓</Text>
+                <IcCheck color={C.successDark} size={11} />
                 <Text style={s.nrTxt}>{nr}</Text>
               </View>
             ))}
@@ -157,7 +157,7 @@ export default function ProfileScreen() {
 
         {/* Botão sair */}
         <TouchableOpacity style={s.logoutBtn} onPress={logout} activeOpacity={0.8}>
-          <Text style={s.logoutTxt}>🚪 Sair da Conta</Text>
+          <IcLogout color={C.dangerDark} size={18} /><Text style={s.logoutTxt}>Sair da Conta</Text>
         </TouchableOpacity>
 
       </ScrollView>
@@ -175,7 +175,7 @@ const s = StyleSheet.create({
   profileName: { fontSize: F.xl, fontWeight: '800', color: C.white, marginBottom: S.xs },
   profileEmail: { fontSize: F.sm, color: C.gray500, marginBottom: S.md },
   rolePill: { flexDirection: 'row', alignItems: 'center', gap: S.xs, borderRadius: R.full, paddingHorizontal: S.md, paddingVertical: S.xs },
-  roleEmoji: { fontSize: F.md },
+
   roleTxt: { fontWeight: '800', fontSize: F.sm },
   obraRow: { marginTop: S.sm },
   obraTxt: { fontSize: F.sm, color: C.gray500 },
@@ -210,6 +210,6 @@ const s = StyleSheet.create({
   brandBox: { alignItems: 'center', gap: S.sm, marginBottom: S.lg, paddingVertical: S.md },
   versionTxt: { fontSize: F.xs, color: C.textTertiary, fontWeight: '600' },
 
-  logoutBtn: { backgroundColor: C.dangerBg, borderRadius: R.xl, padding: S.md, alignItems: 'center', borderWidth: 1.5, borderColor: C.dangerBorder },
+  logoutBtn: { backgroundColor: C.dangerBg, borderRadius: R.xl, padding: S.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.sm, borderWidth: 1.5, borderColor: C.dangerBorder },
   logoutTxt: { fontWeight: '800', fontSize: F.md, color: C.dangerDark },
 });

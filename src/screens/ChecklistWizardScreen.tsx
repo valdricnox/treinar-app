@@ -398,8 +398,11 @@ export default function ChecklistWizardScreen({ route, navigation }: any) {
   };
 
   const salvarProgresso = async (silent = false) => {
-    const payload = { itens, observacoes: obs, geolocation: location, progresso };
-    dispatch(updateChecklist({ ...initial, ...payload }));
+    const done = itens.filter(i => i.conforme !== null).length;
+    const total2 = itens.length;
+    const realProgress = total2 > 0 ? Math.round((done / total2) * 100) : 0;
+    const payload = { itens, observacoes: obs, geolocation: location, progresso: realProgress };
+    dispatch(updateChecklist({ ...initial, ...payload, progresso: payload.progresso || progresso }));
     await saveOfflineSingle(`checklist_${initial.id}`, { ...initial, ...payload });
     if (isOnline) { try { await api.put(`/checklists/${initial.id}`, payload); } catch {} }
     else dispatch(addPendingSync({ id: initial.id, ...payload }));

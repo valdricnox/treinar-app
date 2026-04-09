@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
+import { IcPDF, IcCheck, IcPin, IcPerson, IcSign } from '../components/Icons';
 import api from '../services/api';
 import { C, S, R, F, Sh } from '../theme';
 
@@ -71,7 +72,7 @@ export default function ReportsScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={s.emptyBox}>
-            <Text style={s.emptyEmoji}>📄</Text>
+            <IcPDF color={C.gray300} size={48} />
             <Text style={s.emptyTxt}>Nenhuma inspeção concluída</Text>
             <Text style={s.emptySub}>Complete inspeções para gerar relatórios em PDF</Text>
           </View>
@@ -88,7 +89,7 @@ export default function ReportsScreen() {
                   <Text style={s.nrTxt}>{item.norma}</Text>
                 </View>
                 <View style={s.concBadge}>
-                  <Text style={s.concTxt}>✅ Concluído</Text>
+                  <Text style={s.concTxt}>Concluído</Text>
                 </View>
                 <Text style={s.cardDate}>{dataFmt}</Text>
               </View>
@@ -96,9 +97,9 @@ export default function ReportsScreen() {
               <Text style={s.cardTitle} numberOfLines={2}>{item.titulo}</Text>
 
               <View style={s.cardMeta}>
-                <Text style={s.metaItem}>📍 {item.obra || '—'}</Text>
+                <Text style={s.metaItem}>{item.obra || '—'}</Text>
                 <Text style={s.metaDot}>·</Text>
-                <Text style={s.metaItem}>👤 {item.responsavel || '—'}</Text>
+                <Text style={s.metaItem}>{item.responsavel || '—'}</Text>
               </View>
 
               {/* Barra de progresso */}
@@ -112,7 +113,7 @@ export default function ReportsScreen() {
               {/* Assinatura se houver */}
               {item.assinatura ? (
                 <View style={s.assinaturaRow}>
-                  <Text style={s.assinaturaEmoji}>✍️</Text>
+                  <IcSign color={C.textTertiary} size={16} />
                   <Text style={s.assinaturaTxt}>Assinado por: {item.assinatura}</Text>
                 </View>
               ) : null}
@@ -179,9 +180,9 @@ const s = StyleSheet.create({
   progFill: { height: 5, backgroundColor: C.success, borderRadius: R.full },
   progTxt: { fontSize: F.xs, fontWeight: '800', color: C.successDark, width: 34, textAlign: 'right' },
   assinaturaRow: { flexDirection: 'row', alignItems: 'center', gap: S.xs, marginBottom: S.sm },
-  assinaturaEmoji: { fontSize: F.sm },
+
   assinaturaTxt: { fontSize: F.xs, color: C.textTertiary, fontStyle: 'italic' },
   pdfBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.xs, backgroundColor: C.primary, borderRadius: R.lg, padding: S.sm + 2, ...Sh.colored },
-  pdfBtnEmoji: { fontSize: F.md },
+
   pdfBtnTxt: { fontWeight: '800', fontSize: F.sm, color: C.black },
 });
