@@ -34,14 +34,18 @@ const checklistsSlice = createSlice({
   initialState: {
     list: [] as any[],
     archived: [] as any[],       // inspeções arquivadas
+    deletedIds: [] as any[],     // IDs excluídos permanentemente
     pendingSync: [] as any[],
-    lastFetched: null as string | null,  // evita re-fetch ao trocar aba
+    lastFetched: null as string | null,
   },
   reducers: {
     setChecklists: (state, action: PayloadAction<any[]>) => {
-      // Preserva arquivadas — só atualiza lista ativa
+      // Preserva arquivadas e excluídas — não re-adiciona o que o usuário removeu
       const archivedIds = new Set(state.archived.map((c: any) => c.id));
-      state.list = action.payload.filter((c: any) => !archivedIds.has(c.id));
+      const deletedSet = new Set(state.deletedIds);
+      state.list = action.payload.filter(
+        (c: any) => !archivedIds.has(c.id) && !deletedSet.has(c.id)
+      );
       state.lastFetched = new Date().toISOString();
     },
     addChecklist: (state, action: PayloadAction<any>) => {
@@ -70,9 +74,12 @@ const checklistsSlice = createSlice({
       }
     },
     removeChecklist: (state, action: PayloadAction<any>) => {
-      // Exclui permanentemente de ambas as listas
+      // Exclui permanentemente — registra ID para não re-adicionar no próximo fetch
       state.list = state.list.filter((c) => c.id !== action.payload);
       state.archived = state.archived.filter((c) => c.id !== action.payload);
+      if (!state.deletedIds.includes(action.payload)) {
+        state.deletedIds.push(action.payload);
+      }
     },
     addPendingSync: (state, action: PayloadAction<any>) => {
       state.pendingSync.push(action.payload);
