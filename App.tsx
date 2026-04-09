@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import Svg, { Path, Line, Rect, Circle, Polyline } from 'react-native-svg';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
@@ -8,10 +9,10 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Provider, useSelector, useDispatch } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import NetInfo from '@react-native-community/netinfo';
-import { store, persistor, RootState, setOnline } from './src/store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { store, persistor, RootState, setOnline, clearAuth } from './src/store';
 import { C, F, S } from './src/theme';
 
-// Screens
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ChecklistsScreen from './src/screens/ChecklistsScreen';
@@ -36,13 +37,73 @@ const STACK_OPTS = {
   headerBackTitleVisible: false,
 };
 
+const SZ = 22;
+const SW = 1.6;
+
+function IcDashboard({ c }: { c: string }) {
+  return <Svg width={SZ} height={SZ} viewBox="0 0 24 24" fill="none">
+    <Rect x="3" y="13" width="4" height="8" rx="1" fill={c} />
+    <Rect x="10" y="8" width="4" height="13" rx="1" fill={c} />
+    <Rect x="17" y="3" width="4" height="18" rx="1" fill={c} />
+  </Svg>;
+}
+
+function IcList({ c }: { c: string }) {
+  return <Svg width={SZ} height={SZ} viewBox="0 0 24 24" fill="none">
+    <Rect x="4" y="2" width="16" height="20" rx="2" stroke={c} strokeWidth={SW} />
+    <Line x1="8" y1="8" x2="16" y2="8" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+    <Line x1="8" y1="12" x2="16" y2="12" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+    <Line x1="8" y1="16" x2="13" y2="16" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+  </Svg>;
+}
+
+function IcAlert({ c }: { c: string }) {
+  return <Svg width={SZ} height={SZ} viewBox="0 0 24 24" fill="none">
+    <Path d="M12 3L21.5 20H2.5L12 3Z" stroke={c} strokeWidth={SW} strokeLinejoin="round" />
+    <Line x1="12" y1="10" x2="12" y2="14" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+    <Circle cx="12" cy="17.5" r="0.8" fill={c} />
+  </Svg>;
+}
+
+function IcReport({ c }: { c: string }) {
+  return <Svg width={SZ} height={SZ} viewBox="0 0 24 24" fill="none">
+    <Rect x="4" y="2" width="13" height="17" rx="2" stroke={c} strokeWidth={SW} />
+    <Path d="M9 21v-3l3 1.5 3-1.5v3" stroke={c} strokeWidth={SW} strokeLinejoin="round" />
+    <Line x1="7" y1="8" x2="13" y2="8" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+    <Line x1="7" y1="12" x2="13" y2="12" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+  </Svg>;
+}
+
+function IcTeam({ c }: { c: string }) {
+  return <Svg width={SZ} height={SZ} viewBox="0 0 24 24" fill="none">
+    <Circle cx="9" cy="7" r="3" stroke={c} strokeWidth={SW} />
+    <Path d="M2 20c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+    <Circle cx="18" cy="8" r="2" stroke={c} strokeWidth={SW} />
+    <Path d="M22 20c0-2.21-1.79-4-4-4" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+  </Svg>;
+}
+
+function IcUser({ c }: { c: string }) {
+  return <Svg width={SZ} height={SZ} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="8" r="4" stroke={c} strokeWidth={SW} />
+    <Path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+  </Svg>;
+}
+
+function IcAdmin({ c }: { c: string }) {
+  return <Svg width={SZ} height={SZ} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="3" stroke={c} strokeWidth={SW} />
+    <Path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke={c} strokeWidth={SW} strokeLinecap="round" />
+  </Svg>;
+}
+
 function ChecklistStack() {
   return (
     <Stack.Navigator screenOptions={STACK_OPTS}>
       <Stack.Screen name="Checklists" component={ChecklistsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ChecklistDetail" component={ChecklistDetailScreen} options={{ title: 'Detalhe da Inspeção' }} />
+      <Stack.Screen name="ChecklistDetail" component={ChecklistDetailScreen} options={{ title: 'Detalhe' }} />
+      <Stack.Screen name="ChecklistWizard" component={ChecklistWizardScreen} options={{ title: 'Vistoria' }} />
       <Stack.Screen name="NewChecklist" component={NewChecklistScreen} options={{ title: 'Nova Inspeção' }} />
-      <Stack.Screen name="ChecklistWizard" component={ChecklistWizardScreen} options={{ title: 'Vistoria', headerBackTitleVisible: false }} />
     </Stack.Navigator>
   );
 }
@@ -56,18 +117,10 @@ function IncidentStack() {
   );
 }
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.4 }}>{emoji}</Text>
-  );
-}
-
 function NetworkMonitor() {
   const dispatch = useDispatch();
   useEffect(() => {
-    const unsub = NetInfo.addEventListener((state) => {
-      dispatch(setOnline(!!state.isConnected));
-    });
+    const unsub = NetInfo.addEventListener((state) => { dispatch(setOnline(!!state.isConnected)); });
     return () => unsub();
   }, []);
   return null;
@@ -75,10 +128,27 @@ function NetworkMonitor() {
 
 function MainApp() {
   const { isLoggedIn, user } = useSelector((s: RootState) => s.auth);
+  const dispatch = useDispatch();
   const isAdminOrGestor = user?.role === 'admin' || user?.role === 'gestor';
   const isAdmin = user?.email === 'armindo@treinar.eng.br';
 
   if (!isLoggedIn) return <LoginScreen />;
+
+  const doLogout = async () => {
+    await AsyncStorage.removeItem('token');
+    dispatch(clearAuth());
+  };
+
+  const LogoutBtn = () => (
+    <TouchableOpacity onPress={doLogout} style={{ marginRight: S.md, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+        <Path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="rgba(255,255,255,0.35)" strokeWidth={1.8} strokeLinecap="round" />
+        <Polyline points="16 17 21 12 16 7" stroke="rgba(255,255,255,0.35)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        <Line x1="21" y1="12" x2="9" y2="12" stroke="rgba(255,255,255,0.35)" strokeWidth={1.8} strokeLinecap="round" />
+      </Svg>
+      <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: '600' }}>Sair</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <>
@@ -88,55 +158,42 @@ function MainApp() {
           headerShown: false,
           tabBarStyle: {
             backgroundColor: C.black,
-            borderTopColor: '#1C1C1E',
+            borderTopColor: 'rgba(255,255,255,0.07)',
             borderTopWidth: 1,
-            height: 64,
+            height: 68,
             paddingBottom: 10,
             paddingTop: 8,
           },
           tabBarActiveTintColor: C.primary,
-          tabBarInactiveTintColor: C.gray600,
-          tabBarLabelStyle: { fontSize: F.xs, fontWeight: '700' },
+          tabBarInactiveTintColor: 'rgba(255,255,255,0.28)',
+          tabBarLabelStyle: { fontSize: 10, fontWeight: '600', letterSpacing: 0.2, marginTop: 2 },
         }}
       >
-        <Tab.Screen
-          name="Dashboard"
-          component={DashboardScreen}
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />, tabBarLabel: 'Dashboard' }}
+        <Tab.Screen name="Dashboard" component={DashboardScreen}
+          options={{
+            tabBarIcon: ({ color }) => <IcDashboard c={color} />,
+            headerShown: true,
+            headerStyle: { backgroundColor: C.black },
+            headerTitle: '',
+            headerRight: () => <LogoutBtn />,
+          }}
         />
-        <Tab.Screen
-          name="Inspeções"
-          component={ChecklistStack}
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} />, tabBarLabel: 'Inspeções' }}
+        <Tab.Screen name="Inspeções" component={ChecklistStack}
+          options={{ tabBarIcon: ({ color }) => <IcList c={color} /> }}
         />
-        <Tab.Screen
-          name="Incidentes"
-          component={IncidentStack}
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="⚠️" focused={focused} />, tabBarLabel: 'Incidentes' }}
+        <Tab.Screen name="Incidentes" component={IncidentStack}
+          options={{ tabBarIcon: ({ color }) => <IcAlert c={color} /> }}
         />
-        <Tab.Screen
-          name="Relatórios"
-          component={ReportsScreen}
-          options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📄" focused={focused} />, tabBarLabel: 'Relatórios' }}
+        <Tab.Screen name="Relatórios" component={ReportsScreen}
+          options={{ tabBarIcon: ({ color }) => <IcReport c={color} /> }}
         />
-        {isAdminOrGestor ? (
-          <Tab.Screen
-            name="Equipe"
-            component={TeamScreen}
-            options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />, tabBarLabel: 'Equipe' }}
-          />
-        ) : (
-          <Tab.Screen
-            name="Perfil"
-            component={ProfileScreen}
-            options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />, tabBarLabel: 'Perfil' }}
-          />
-        )}
+        {isAdminOrGestor
+          ? <Tab.Screen name="Equipe" component={TeamScreen} options={{ tabBarIcon: ({ color }) => <IcTeam c={color} /> }} />
+          : <Tab.Screen name="Perfil" component={ProfileScreen} options={{ tabBarIcon: ({ color }) => <IcUser c={color} /> }} />
+        }
         {isAdmin && (
-          <Tab.Screen
-            name="Admin"
-            component={AdminScreen}
-            options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />, tabBarLabel: 'Admin' }}
+          <Tab.Screen name="Admin" component={AdminScreen}
+            options={{ tabBarIcon: ({ color }) => <IcAdmin c={color} /> }}
           />
         )}
       </Tab.Navigator>
@@ -150,12 +207,12 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <View style={eb.container}>
-          <Text style={eb.emoji}>⚠️</Text>
-          <Text style={eb.title}>Algo deu errado</Text>
-          <Text style={eb.msg}>{this.state.error?.message || 'Erro desconhecido'}</Text>
-          <TouchableOpacity style={eb.btn} onPress={() => this.setState({ hasError: false, error: null })}>
-            <Text style={eb.btnTxt}>Tentar novamente</Text>
+        <View style={eb.c}>
+          <Text style={eb.e}>⚠️</Text>
+          <Text style={eb.t}>Algo deu errado</Text>
+          <Text style={eb.m}>{this.state.error?.message}</Text>
+          <TouchableOpacity style={eb.b} onPress={() => this.setState({ hasError: false, error: null })}>
+            <Text style={eb.bt}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>
       );
@@ -165,12 +222,12 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 const eb = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.black, alignItems: 'center', justifyContent: 'center', padding: S.xl },
-  emoji: { fontSize: 48, marginBottom: S.md },
-  title: { fontSize: F.xl, fontWeight: '800', color: C.white, marginBottom: S.sm },
-  msg: { fontSize: F.sm, color: C.gray500, textAlign: 'center', marginBottom: S.xl },
-  btn: { backgroundColor: C.primary, borderRadius: 12, paddingHorizontal: S.xl, paddingVertical: S.md },
-  btnTxt: { fontWeight: '800', color: C.black, fontSize: F.md },
+  c: { flex: 1, backgroundColor: C.black, alignItems: 'center', justifyContent: 'center', padding: S.xl },
+  e: { fontSize: 48, marginBottom: S.md },
+  t: { fontSize: F.xl, fontWeight: '800', color: C.white, marginBottom: S.sm },
+  m: { fontSize: F.sm, color: C.gray500, textAlign: 'center', marginBottom: S.xl },
+  b: { backgroundColor: C.primary, borderRadius: 12, paddingHorizontal: S.xl, paddingVertical: S.md },
+  bt: { fontWeight: '800', color: C.black, fontSize: F.md },
 });
 
 export default function App() {
@@ -179,15 +236,12 @@ export default function App() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <Provider store={store}>
-            <PersistGate
-              loading={
-                <View style={{ flex: 1, backgroundColor: C.black, alignItems: 'center', justifyContent: 'center' }}>
-                  <ActivityIndicator color={C.primary} size="large" />
-                  <Text style={{ color: C.gray500, marginTop: S.md, fontSize: F.sm }}>Carregando dados...</Text>
-                </View>
-              }
-              persistor={persistor}
-            >
+            <PersistGate loading={
+              <View style={{ flex: 1, backgroundColor: C.black, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator color={C.primary} size="large" />
+                <Text style={{ color: C.gray500, marginTop: S.md, fontSize: F.sm }}>Carregando...</Text>
+              </View>
+            } persistor={persistor}>
               <NavigationContainer>
                 <MainApp />
               </NavigationContainer>

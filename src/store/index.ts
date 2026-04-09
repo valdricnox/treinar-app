@@ -33,11 +33,16 @@ const checklistsSlice = createSlice({
   name: 'checklists',
   initialState: {
     list: [] as any[],
-    pendingSync: [] as any[],  // itens a sincronizar quando voltar online
+    archived: [] as any[],       // inspeções arquivadas
+    pendingSync: [] as any[],
+    lastFetched: null as string | null,  // evita re-fetch ao trocar aba
   },
   reducers: {
     setChecklists: (state, action: PayloadAction<any[]>) => {
-      state.list = action.payload;
+      // Preserva arquivadas — só atualiza lista ativa
+      const archivedIds = new Set(state.archived.map((c: any) => c.id));
+      state.list = action.payload.filter((c: any) => !archivedIds.has(c.id));
+      state.lastFetched = new Date().toISOString();
     },
     addChecklist: (state, action: PayloadAction<any>) => {
       state.list.unshift(action.payload);
@@ -47,8 +52,27 @@ const checklistsSlice = createSlice({
       if (idx !== -1) state.list[idx] = { ...state.list[idx], ...action.payload };
       else state.list.unshift(action.payload);
     },
+    archiveChecklist: (state, action: PayloadAction<any>) => {
+      // Move para arquivadas, remove da lista ativa
+      const item = state.list.find((c) => c.id === action.payload);
+      if (item) {
+        state.archived.unshift({ ...item, archivedAt: new Date().toISOString() });
+        state.list = state.list.filter((c) => c.id !== action.payload);
+      }
+    },
+    unarchiveChecklist: (state, action: PayloadAction<any>) => {
+      // Restaura da lista de arquivadas
+      const item = state.archived.find((c) => c.id === action.payload);
+      if (item) {
+        const { archivedAt, ...restored } = item;
+        state.list.unshift(restored);
+        state.archived = state.archived.filter((c) => c.id !== action.payload);
+      }
+    },
     removeChecklist: (state, action: PayloadAction<any>) => {
+      // Exclui permanentemente de ambas as listas
       state.list = state.list.filter((c) => c.id !== action.payload);
+      state.archived = state.archived.filter((c) => c.id !== action.payload);
     },
     addPendingSync: (state, action: PayloadAction<any>) => {
       state.pendingSync.push(action.payload);
@@ -121,7 +145,7 @@ const appSlice = createSlice({
 
 // ─── EXPORTS ──────────────────────────────────────────────────────────────────
 export const { setAuth, clearAuth, updateUser } = authSlice.actions;
-export const { setChecklists, addChecklist, updateChecklist, removeChecklist, addPendingSync, clearPendingSync } = checklistsSlice.actions;
+export const { setChecklists, addChecklist, updateChecklist, archiveChecklist, unarchiveChecklist, removeChecklist, addPendingSync, clearPendingSync } = checklistsSlice.actions;
 export const { setIncidents, addIncident, updateIncident, addIncidentPendingSync, clearIncidentPendingSync } = incidentsSlice.actions;
 export const { setTeam, addMember, updateMember, removeMember } = teamSlice.actions;
 export const { setOnline, setLastSync, setPendingSyncCount } = appSlice.actions;
