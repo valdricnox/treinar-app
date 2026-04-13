@@ -9,7 +9,8 @@ import { RootState, setChecklists, setIncidents, setLastSync, setOnline } from '
 import api from '../services/api';
 import { C, S, R, F, Sh } from '../theme';
 import OfflineBanner from '../components/OfflineBanner';
-import { IcChecklists, IcIncidents, IcReports, IcTeam, IcUser } from '../components/Icons';
+import { IcChecklists, IcIncidents, IcReports, IcTeam, IcUser, IcRefresh, IcWarning } from '../components/Icons';
+import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
